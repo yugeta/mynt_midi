@@ -3,8 +3,10 @@
 
   display:flex;
   gap:10px;
+  margin-left:auto;
   margin-bottom:10px;
   height:var(--control-height);
+  padding-right:20px;
 }
 
 .controls > *{
@@ -17,7 +19,8 @@
 .controls .input-group .title{
   margin:0;
   padding:0;
-  background-color:#ddd;
+  background-color:black;
+  color:white;
   padding:5px 10px;
   font-size:12px;
   /* border:1px solid #ddd; */
@@ -49,17 +52,18 @@
   position:absolute;
   right:15px;
   font-size:12px;
-  color:#aaa;
+  color:black;
 }
 
+/* Play */
 .controls [name='play']{
   display:flex;
-  gap:10px;
+  gap:0px;
 }
 .controls [name='play'] svg{
-  width:24px;
-  height:24px;
-  fill:black;
+  width:16px;
+  height:16px;
+  fill:white;
   cursor:pointer;
 }
 .controls [name='play'] svg:hover{
@@ -73,9 +77,29 @@
   width:80px;
   height:100%;
   border:1px solid #aaa;
-  border-radius:4px;
+  /* border-radius:4px; */
   text-align:center;
 }
+
+.controls [name='play'] .start,
+.controls [name='play'] .play{
+  background-color:black;
+  border:0.5px solid  #aaa;
+  padding:5px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.controls [name='play'] .start{
+  border-radius: calc(var(--control-height) / 2) 0 0 calc(var(--control-height) / 2);
+  border-right-width:0;
+}
+.controls [name='play'] .play{
+  border-radius: 0 calc(var(--control-height) / 2) calc(var(--control-height) / 2) 0;
+  border-left-width:0;
+}
+
 /* .controls [name='play'] input[name='mmdd']::after{
   content:'sec';
 } */

@@ -1,8 +1,9 @@
 MYNT midi
 ===
 ```
-Create : 2023.08.11
+Create : 2023-08-11
 Author : Yugeta.Koji
+Update : 2024-08-17
 ```
 
 # Summary
@@ -14,4 +15,10 @@ Author : Yugeta.Koji
 - Install
 - Functions
 - Commentary
+
+# Update
+- 2024-08-17
+  - bug-fix
+    - preview : time-bar sync
+    
 

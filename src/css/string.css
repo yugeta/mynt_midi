@@ -1,6 +1,8 @@
 .midi-string-area{
   width:100%;
   padding:10px;
+
+  display:none;
 }
 textarea[name='midi-string']{
   display:block;
