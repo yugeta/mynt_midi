@@ -148,7 +148,6 @@ export class Editor extends Util{
         left  : note.offsetLeft,
         width : note.offsetWidth,
       }
-      console.log(left, trans.left, trans.width)
       if(trans.left <= left && trans.left + trans.width >= left){
         return true
       }

@@ -61,9 +61,9 @@ export class Keyboard extends Util{
   static key_click(e){
     const elm_oct = e.target.closest('.octave')
     const elm_key = e.target.closest('[data-key]')
+    if(!elm_oct || !elm_key){return}
     const oct = elm_oct.getAttribute('data-octave')
     const key = elm_key.getAttribute('data-key')
-    console.log(oct,key)
     Midi.play(`T450O${oct}${key}`)
     // Midi.play('T450O7EGO8ECDG') // coin
   }
