@@ -1,46 +1,33 @@
-import { Element }  from './element.js'
-import { Timebar }  from './timebar.js'
-import { Timeline } from './timeline.js'
+import { Element }  from './common/element.js'
 import { Css }      from './common/css.js'
+import { Util }     from './util.js'
 
-export class Editor{
-  constructor(callback){
-    Editor.clear()
+export class Editor extends Util{
+  constructor(){
+    super()
+  }
+
+  async init(){
+    this.clear()
     this.set_octove()
     this.set_event()
-    Timebar.view_line()
-    Editor.fit_height()
-    this.callback = callback || null
-    // Editor.scroll_middle()
-    this.finish()
+    this.view_line()
+    this.fit_height()
   }
 
-  static get default_note_width(){
-    return 50
-  }
-
-  static get notes(){
-    return Element.elm_editor.querySelectorAll(`.note`)
-  }
 
   // エディタ内の表示をクリアする
-  static clear(){
+  clear(){
     Element.elm_editor.innerHTML = ''
   }
 
-  // エディタ内の音符をすべて削除する
-  static note_clear(){
-    for(const note of Editor.notes){
-      note.parentNode.removeChild(note)
-    }
-  }
-
   set_event(){
-    Element.elm_editor.addEventListener('click' , this.click_editor.bind(this))
+    Element.elm_editor.addEventListener('click'     , this.click_editor.bind(this))
     Element.elm_editor.addEventListener('mousedown' , this.note_move_start.bind(this))
     Element.elm_editor.addEventListener('mousemove' , this.note_move_move.bind(this))
     Element.elm_editor.addEventListener('mouseup'   , this.note_move_end.bind(this))
-    window.addEventListener('mousedown' , this.click_note.bind(this))
+    
+    window.addEventListener('mousedown', this.click_note.bind(this))
   }
 
   // オクターブ毎の表示処理
@@ -67,10 +54,6 @@ export class Editor{
     }
   }
 
-  static set_addSize(size){
-    Element.elm_editor.style.setProperty('padding-right', `${size}px`, '')
-  }
-
   // エディターをクリックした時の処理
   click_editor(e){
     // key-lineクリック以外は処理しない
@@ -81,26 +64,16 @@ export class Editor{
     const octave_rect = key_elm.closest('.octave')
     const key_type    = key_elm.getAttribute('data-type')
     const pos = {
-      x : Editor.get_pos_x(e.pageX),
-      y : Editor.get_pos_y(key_elm.offsetTop + octave_rect.offsetTop),
+      x : this.get_pos_x(e.pageX),
+      y : this.get_pos_y(key_elm.offsetTop + octave_rect.offsetTop),
     }
     const left        = this.note_pos_adjust(pos.x)
-    // if(this.is_note_exist(octave, key, left)){return}
+
     // クリックしたtimeを取得(エディタ面をクリックした座標からtimelineの時間を取得)
-    this.put_note(pos.y , left , key_type , octave , key)
-  }
-  static get_pos_x(left){
-    const editor_rect = Element.elm_editor.getBoundingClientRect()
-    left = left - editor_rect.left + Element.elm_editor.scrollLeft - (Editor.default_note_width / 2)
-    left = left < 0 ? 0 : left
-    return left
-  }
-  static get_pos_y(top){
-    top = top < 0 ? 0 : top
-    return top
+    this.put_note_editor(pos.y , left , key_type , octave , key)
   }
 
-  static fit_height(){
+  fit_height(){
     const footer_size = 30
     const rect = Element.elm_editor.getBoundingClientRect()
     const height = window.innerHeight -  rect.top - footer_size
@@ -117,17 +90,21 @@ export class Editor{
   }
 
   // 音符を配置
-  put_note(top, left , type , octave , key){
-    const width = Editor.default_note_width
+  put_note_editor(top, left , type , octave , key){
+    const width = Element.default_note_width
     const note = document.createElement('div')
+
     note.classList.add('note')
+
     note.style.setProperty('left'   , `${left}px`,'')
     note.style.setProperty('top'    , `${top}px`,'')
     note.style.setProperty('width'  , `${width}px`,'')
+
     note.setAttribute('data-type'   , type)
     note.setAttribute('data-octave' , octave)
     note.setAttribute('data-key'    , key)
     note.setAttribute('data-status' , 'active')
+
     Element.elm_editor.appendChild(note)
   }
 
@@ -145,8 +122,6 @@ export class Editor{
     const note = this.move_note.elm
     let left = this.move_note.left - (this.move_note.mouse - e.pageX)
     left = this.note_pos_adjust(left)
-    // left = left + Element.elm_editor.scrollLeft - (Editor.default_note_width / 2)
-    // console.log(left , this.move_note.left , this.move_note.mouse , e.pageX)
     note.style.setProperty('left' , `${left}px` , '')
   }
   note_move_end(e){
@@ -156,20 +131,18 @@ export class Editor{
   // 音符(note)を既定値に丸め込む処理(x軸)
   note_pos_adjust(num){
     // 丸める既定値(px)
-    const step_size = Timeline.msec / Timeline.msec_step
+    const step_size = this.msec / this.msec_step
     return Math.floor(num / step_size) * step_size
   }
 
   is_note_exist(octave, key, left){
-    // console.log(octave, key, left)
     const note = this.search_note(octave, key, left)
-    // console.log(note)
     return note ? true : false
   }
   search_note(octave, key, left){
     const notes = Element.elm_editor.querySelectorAll(`.note[data-octave='${octave}'][data-key='${key}']`)
     if(!notes || !notes.length){return}
-    left += (Editor.default_note_width / 2)
+    left += (Element.default_note_width / 2)
     for(const note of notes){
       const trans = {
         left  : note.offsetLeft,
@@ -195,36 +168,4 @@ export class Editor{
     }
   }
 
-  finish(){
-    if(this.callback){
-      this.callback()
-    }
-  }
-
-  static scroll_middle(){
-    const pos = {
-      min : {x:null,y:null},
-      max : {x:null,y:null}
-    }
-    // console.log(Editor.notes)
-    if(!Editor.notes.length){return}
-    
-    for(const note of Editor.notes){
-      // const ovtave = note.closest(`.octave`)
-      const current = {
-        x : note.offsetLeft,
-        y : note.offsetTop,
-        w : note.offsetWidth,
-        h : note.offsetHeight,
-      }
-      pos.min.x = pos.min.x === null || pos.min.x > current.x ? current.x : pos.min.x
-      pos.min.y = pos.min.y === null || pos.min.y > current.y ? current.y : pos.min.y
-      pos.max.x = pos.max.x === null || pos.max.x < current.x + current.w ? current.x + current.w : pos.max.x
-      pos.max.y = pos.max.y === null || pos.max.y < current.y + current.h ? current.y + current.h : pos.max.y
-    }
-    // console.log(1,pos)
-    console.log((pos.max.y - pos.min.y) / 2)
-    // const top = pos.min.y + ((pos.max.y - pos.min.y) / 2)
-    Element.elm_keyboard.scrollTop = pos.min.y
-  }
 }

@@ -1,63 +1,51 @@
-import { Element }  from './element.js'
+import { Element }  from './common/element.js'
 import { Timeline } from './timeline.js'
-import { Timebar }  from './timebar.js'
-import { Player }   from './player.js'
+import { Util }     from './util.js'
 
-export class Controls{
+export class Controls extends Util{
   constructor(){
-    Controls.set_time()
+    super()
+  }
+
+  async init(){
+    this.set_time()
     this.set_event()
   }
+
   set_event(){
     Element.elm_time.addEventListener('change' , this.change_time.bind(this))
-    Controls.elm_play.addEventListener('click' , this.click_play.bind(this))
-  }
-
-  static get elm_play(){
-    return document.querySelector(`[name='play'] .play`)
-  }
-  // static get elm_stop(){
-  //   return document.querySelector(`[name='play'] .stop`)
-  // }
-  static get elm_start(){
-    return document.querySelector(`[name='play'] .start`)
-  }
-  static get play_status(){
-    return Controls.elm_play.getAttribute('data-status') || null
-  }
-  static set play_status(status){
-    Controls.elm_play.setAttribute('data-status' , status)
+    Element.elm_play.addEventListener('click' , this.click_play.bind(this))
   }
 
   static get time(){
     return Number(Element.elm_time.value) * 1000
   }
 
-  static set_time(time){
-    time = time || Timeline.fulltime / 1000
+  set_time(time){
+    time = time || this.fulltime / 1000
     Element.elm_time.value = time
   }
   change_time(e){
     const time = Number(Element.elm_time.value)
-    Timeline.sec = time * Timeline.msec * 10
+    this.sec = time * this.msec * 10
     new Timeline()
   }
 
   click_play(e){
-    switch(Controls.play_status){
+    switch(this.play_status){
       case 'play':
-        Controls.play_status = ''
+        this.play_status = ''
         break
       default:
-        Controls.play_status = 'play'
+        this.play_status = 'play'
+        this.play_control()
         this.play()
-        new Player()
         break
     }
   }
 
-  play(){
-    if(Controls.play_status !== 'play'){
+  play_control(){
+    if(this.play_status !== 'play'){
       Controls.play_time = null
       return
     }
@@ -74,12 +62,11 @@ export class Controls{
       Controls.play_time = (+new Date())
     }
     
-
     // get_position
-    const left = Timeline.time2pos(progress_time)
+    const left = this.time2pos(progress_time)
 
     // timebar
-    Timebar.set_bar_pos(left)
+    this.set_bar_pos(left)
 
     // repeat
     window.requestAnimationFrame(this.play.bind(this))

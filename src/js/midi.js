@@ -1,4 +1,5 @@
-import { Element } from './element.js'
+import { Element }  from './common/element.js'
+import { Util }    from './util.js'
 
 /*
   Ex)
@@ -12,8 +13,9 @@ import { Element } from './element.js'
   S  : Space(Blank)
 */
 
-export class Midi{
+export class Midi extends Util{
   constructor(data){
+    super()
     this.data = data || null
   }
 
@@ -265,7 +267,7 @@ export class Midi{
     return 440 * Math.pow(2, (midi - 69) / 12)
   }
 
-  static sound = function(datas){
+  static sound(datas){
     const act  = Midi.audio
     const destination = act.createAnalyser()
     const oscillator  = []

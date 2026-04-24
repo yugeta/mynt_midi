@@ -1,11 +1,18 @@
-import { Element } from './element.js'
+import { Element } from './common/element.js'
 import { Convert } from './common/convert.js'
 import { Midi }    from './midi.js'
+import { Util }    from './util.js'
 
-export class Keyboard{
+export class Keyboard extends Util{
   constructor(options){
+    super()
     this.options = options || {}
-    this.asset_load()
+    
+  }
+
+  async init(){
+    const res = await this.asset_load()
+    this.view_octave(res)
   }
 
   // 鍵盤HTMLのファイルパス
@@ -14,25 +21,18 @@ export class Keyboard{
   }
 
   // 鍵盤HTMLの読み込み処理
-  asset_load(){
-    const xhr = new XMLHttpRequest()
-    xhr.withCredentials = true;
-    xhr.open('GET' , this.filepath_asset , true)
-    xhr.setRequestHeader("Content-Type", "text/html");
-    xhr.onload = this.asset_loaded.bind(this)
-    xhr.send()
-  }
+  async asset_load(){
+    return await fetch(this.filepath_asset,{
+      method : 'GET',
+      headers: {"Content-Type": "text/html"},
+    }).then(e => e.text())
 
-  // 鍵盤HTMLの読み込み完了処理
-  asset_loaded(e){
-    this.asset_octave = e.target.response
-    this.view_octave()
   }
 
   // オクターブ別表示
-  view_octave(){
+  view_octave(asset_octave){
     for(let i=0; i<Element.octave_count; i++){
-      const html = new Convert(this.asset_octave).double_bracket({octave : i})
+      const html = new Convert(asset_octave).double_bracket({octave : i})
       Element.elm_keyboard.insertAdjacentHTML('afterbegin' ,html)
     }
     this.set_event()

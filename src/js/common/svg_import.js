@@ -1,8 +1,4 @@
 export class SvgImport{
-  constructor(options){
-    this.options = options || {}
-    this.init()
-  }
 
   static get targets(){
     return document.querySelectorAll('img , svg[src]')
@@ -12,7 +8,7 @@ export class SvgImport{
     return 'image/svg+xml'
   }
   
-  init(){
+  async init(){
     for(const target of SvgImport.targets){
       const src = target.getAttribute('src')
       const ext = SvgImport.get_ext(src)
