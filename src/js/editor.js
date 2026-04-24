@@ -26,8 +26,13 @@ export class Editor extends Util{
     Element.elm_editor.addEventListener('mousedown' , this.note_move_start.bind(this))
     Element.elm_editor.addEventListener('mousemove' , this.note_move_move.bind(this))
     Element.elm_editor.addEventListener('mouseup'   , this.note_move_end.bind(this))
-    
-    window.addEventListener('mousedown', this.click_note.bind(this))
+
+    // 重複登録を防止（前回のリスナーを解除してから登録）
+    if(Editor._click_note_handler){
+      window.removeEventListener('mousedown', Editor._click_note_handler)
+    }
+    Editor._click_note_handler = this.click_note.bind(this)
+    window.addEventListener('mousedown', Editor._click_note_handler)
   }
 
   // オクターブ毎の表示処理

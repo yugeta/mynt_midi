@@ -26,7 +26,7 @@ export class SvgImport{
   }
 
   static load_svg(elm , src , callback){
-    SvgImport.datas = SvgImport.datas || []
+    SvgImport.datas = SvgImport.datas || {}
     if(typeof SvgImport.datas[src] !== 'undefined'){
       if(callback){
         callback(SvgImport.datas[src])

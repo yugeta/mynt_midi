@@ -56,13 +56,13 @@ static key_click(e){
 
 ---
 
-## 6. Editor のイベントリスナー重複防止
+## 6. Editor のイベントリスナー重複防止 ✅ 完了
 
 `Editor.set_event()` で `window.addEventListener('mousedown', ...)` を使用していますが、Editor が再初期化された場合にリスナーが重複登録されます。
 
 ---
 
-## 7. Midi.sound() の AudioContext リーク
+## 7. Midi.sound() の AudioContext リーク ✅ 完了
 
 `Midi.play()` を呼ぶたびに `new AudioContext()` が生成されますが、使用後に `close()` されていません。
 ブラウザの AudioContext 上限（通常6個程度）に達すると音が鳴らなくなります。
@@ -71,20 +71,20 @@ static key_click(e){
 
 ---
 
-## 8. SvgImport のキャッシュに Array を使用
+## 8. SvgImport のキャッシュに Array を使用 ✅ 完了
 
 `svg_import.js` で `SvgImport.datas = SvgImport.datas || []` としていますが、キーが文字列（ファイルパス）なので `Map` または `Object` を使うべきです。
 Array に文字列キーで代入すると、`length` が正しく動作しません。
 
 ---
 
-## 9. Css.get_css の戻り値が null の場合のハンドリング
+## 9. Css.get_css の戻り値が null の場合のハンドリング ✅ 完了
 
 `Util` クラスの `get msec()` で `Css.get_css(':root','--time-msec')` の戻り値に対して `.replace('px','')` を呼んでいますが、CSS変数が未定義の場合 `null.replace()` でエラーになります。
 
 ---
 
-## 10. MIDI文字列入力エリアの非表示
+## 10. MIDI文字列入力エリアの非表示 ✅ 完了
 
 `src/css/string.css` で `.midi-string-area` に `display: none` が設定されていますが、`src/index.html` の textarea にはサンプルデータが入っています。
 `String` クラスが textarea の値を読み取ってエディタに音符を配置する機能があるため、非表示のままだとユーザーが文字列を編集できません。

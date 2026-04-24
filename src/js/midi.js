@@ -19,13 +19,16 @@ export class Midi extends Util{
     this.data = data || null
   }
 
+  // AudioContext をシングルトンとして再利用
   static get audio(){
-    return  new (window.AudioContext || window.webkitAudioContext)
+    if(!Midi._audioContext || Midi._audioContext.state === 'closed'){
+      Midi._audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    }
+    return Midi._audioContext
   }
 
   static get analyser(){
-    const audio = Midi.audio
-    return audio.createAnalyser()
+    return Midi.audio.createAnalyser()
   }
 
 

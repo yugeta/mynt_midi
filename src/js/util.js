@@ -119,7 +119,8 @@ export class Util{
 
   // 1msecのサイズ(px)
   get msec(){
-    const size = Css.get_css(':root','--time-msec').replace('px' , '')
+    const raw = Css.get_css(':root','--time-msec')
+    const size = raw ? raw.replace('px' , '') : '50'
     return Number(size)
   }
   // 1msecのサイズ変更(px)
@@ -144,7 +145,8 @@ export class Util{
   }
   // 全体時間のサイズ(px)
   get width(){
-    const size = Css.get_css(':root', '--time-sec').replace('px' , '')
+    const raw = Css.get_css(':root', '--time-sec')
+    const size = raw ? raw.replace('px' , '') : '1200'
     return Number(size)
   }
 

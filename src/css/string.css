@@ -1,14 +1,12 @@
 .midi-string-area{
   width:100%;
   padding:10px;
-
-  display:none;
 }
 textarea[name='midi-string']{
   display:block;
   width:100%;
   height:80px;
-  border:1ox solid #ddd;
+  border:1px solid #ddd;
   padding:10px;
   resize:vertical;
 }
