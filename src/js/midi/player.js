@@ -29,7 +29,6 @@ export class MidiPlayer{
     const oscillator  = []
     const gain        = []
     let cnt    = this.get_waon_count(datas)
-    let volume = (datas[datas.length-1].volume) / 1000
 
     for(let i=0; i<cnt; i++){
       oscillator[i] = act.createOscillator()
@@ -44,8 +43,12 @@ export class MidiPlayer{
     let time = 0
     for(let i=0; i<datas.length; i++){
       let data = datas[i]
+      let volume = (data.volume || 50) / 1000
+
       if(data.freq){
+        // 音符の開始時に gain を設定（フェードアウト後の復帰を含む）
         for(let j=0; j<cnt; j++){
+          gain[j].gain.setValueAtTime(volume, startTime + time)
           if(data.freq.constructor === Array){
             for(let k=0; k<cnt; k++){
               let freq = data.freq[k] || data.freq[0]
@@ -59,6 +62,7 @@ export class MidiPlayer{
       }
       else if(data.S === "S"){
         for(let j=0; j<cnt; j++){
+          gain[j].gain.setValueAtTime(0, startTime + time)
           oscillator[j].frequency.setValueAtTime(0 , startTime + time)
         }
       }
@@ -76,7 +80,7 @@ export class MidiPlayer{
       oscillator[i].start(startTime)
       oscillator[i].stop(startTime + time)
       oscillator[i].connect(gain[i])
-      gain[i].gain.value = volume
+      gain[i].gain.setValueAtTime(0, startTime)
       gain[i].connect(destination)
     }
     return { startTime: startTime, duration: time }

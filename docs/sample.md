@@ -359,3 +359,37 @@ T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3
   ]
 }
 ```
+
+## Grok
+```
+{
+  "bpm": 120,
+  "notes": [
+    { "pitch": ["E4", "G#4", "B4", "E5"], "duration": "2n" },
+    { "pitch": "rest", "duration": "8n" },
+    { "pitch": ["E4", "G#4", "B4", "E5"], "duration": "4n" },
+    { "pitch": ["F#4", "A4", "C#5"], "duration": "4n" },
+    { "pitch": ["G#4", "B4", "D#5"], "duration": "4n" },
+    { "pitch": ["A4", "C#5", "E5"], "duration": "2n" },
+    { "pitch": "rest", "duration": "8n" },
+    { "pitch": "B4", "duration": "4n" },
+    { "pitch": "E5", "duration": "4n" },
+    { "pitch": "G#5", "duration": "4n" },
+    { "pitch": "B5", "duration": "4n" },
+    { "pitch": ["E5", "G#5", "B5"], "duration": "2n" },
+    { "pitch": "rest", "duration": "4n" },
+    { "pitch": "B4", "duration": "8n" },
+    { "pitch": "C#5", "duration": "8n" },
+    { "pitch": "D#5", "duration": "8n" },
+    { "pitch": "E5", "duration": "4n" },
+    { "pitch": "F#5", "duration": "8n" },
+    { "pitch": "G#5", "duration": "8n" },
+    { "pitch": "A5", "duration": "4n" },
+    { "pitch": ["B4", "D#5", "F#5"], "duration": "2n" },
+    { "pitch": "rest", "duration": "4n" },
+    { "pitch": ["E4", "G#4", "B4"], "duration": "2n" },
+    { "pitch": ["E4", "G#4", "B4", "E5"], "duration": "1n" },
+    { "pitch": "fade", "duration": "2n" }
+  ]
+}
+```
