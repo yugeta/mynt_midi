@@ -154,7 +154,7 @@ export class StringInput{
   /**
    * 全レイヤーのノートをエディタに描画する
    * アクティブレイヤーは不透明、それ以外は半透明で表示
-   * アクティブレイヤーは MidiModel のデータ（left 保持）から描画する
+   * notesData があればモデルデータから描画（位置を正確に維持）
    */
   renderAllLayers(){
     const layers = LayerModel.layers
@@ -163,8 +163,14 @@ export class StringInput{
     // 非アクティブレイヤーを先に描画（背面）
     for(const layer of layers){
       if(layer.id === activeId){continue}
-      if(!layer.midiString || !layer.visible){continue}
-      StringInput._renderLayerNotes(layer, false)
+      if(!layer.visible){continue}
+      if(layer.notesData && layer.notesData.length){
+        // notesData から描画（位置を正確に維持）
+        StringInput._renderFromSnapshotNotes(layer.notesData, layer, false)
+      } else if(layer.midiString){
+        // フォールバック: midiString からパース描画
+        StringInput._renderLayerNotes(layer, false)
+      }
     }
 
     // アクティブレイヤーを最後に描画（前面）— MidiModel から描画
@@ -174,8 +180,31 @@ export class StringInput{
       if(notes && notes.length){
         StringInput._renderFromModelNotes(notes, activeLayer)
       } else if(activeLayer.midiString){
-        // モデルが空なら midiString からフォールバック描画
         StringInput._renderLayerNotes(activeLayer, true)
+      }
+    }
+  }
+
+  /**
+   * スナップショットデータからエディタに描画する（非アクティブレイヤー用）
+   */
+  static _renderFromSnapshotNotes(notesData, layer, isActive){
+    for(const note of notesData){
+      if(note.type !== 'note'){continue}
+      if(note.octave === null || note.key === null){continue}
+      put_note(note.octave, note.key, note.left, note.width)
+
+      const allNotes = Element.elm_editor.querySelectorAll('.note')
+      const lastNote = allNotes[allNotes.length - 1]
+      if(!lastNote){continue}
+
+      lastNote.setAttribute('data-layer-id', layer.id)
+      lastNote.style.setProperty('--layer-color', layer.color)
+
+      if(isActive){
+        lastNote.classList.add('layer-active')
+      } else {
+        lastNote.classList.add('layer-inactive')
       }
     }
   }
