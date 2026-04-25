@@ -1,7 +1,7 @@
-import { LayerModel } from '../midi/layer-model.js'
-
 /**
  * DOM要素アクセサ
+ *
+ * 純粋なDOM参照のみ。データモデル（LayerModel等）への依存なし。
  */
 
 export class Element{
@@ -28,13 +28,6 @@ export class Element{
   }
   static get octave_count(){
     return 11
-  }
-  static get oscillator_type(){
-    const active = LayerModel.activeLayer
-    if(active){
-      return active.oscillatorType
-    }
-    return document.querySelector(`[name='oscillator_type']`).value
   }
   static get elm_time(){
     return document.querySelector(`input[name='time']`)

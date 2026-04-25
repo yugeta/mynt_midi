@@ -74,7 +74,7 @@ export class Editor{
     const modelNote = MidiModel.addNote(octave, key, left)
     this.put_note_editor(pos.y , left , key_type , octave , key, modelNote.id)
     // エディタの音符状態を textarea に同期
-    MidiSerializer.syncToTextarea()
+    MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
   }
 
   fit_height(){
@@ -164,8 +164,7 @@ export class Editor{
   note_move_end(e){
     if(!this.move_note){return}
     delete this.move_note
-    // エディタの音符状態を textarea に同期
-    MidiSerializer.syncToTextarea()
+    MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
   }
 
   note_pos_adjust(num){

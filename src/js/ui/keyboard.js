@@ -1,6 +1,7 @@
 import { Element }    from './element.js'
 import { Convert }    from '../core/convert.js'
 import { MidiPlayer } from '../midi/player.js'
+import { LayerModel } from '../midi/layer-model.js'
 
 export class Keyboard{
   constructor(options){
@@ -51,7 +52,9 @@ export class Keyboard{
     if(!elm_oct || !elm_key){return}
     const oct = elm_oct.getAttribute('data-octave')
     const key = elm_key.getAttribute('data-key')
-    MidiPlayer.play(`T450O${oct}${key}`)
+    const active = LayerModel.activeLayer
+    const oscType = active ? active.oscillatorType : 'square'
+    MidiPlayer.play(`T450O${oct}${key}`, { oscillatorType: oscType })
   }
 
   static mouseover_key(e){

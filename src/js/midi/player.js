@@ -1,4 +1,3 @@
-import { Element }    from '../ui/element.js'
 import { MidiParser } from './parser.js'
 
 /**
@@ -6,6 +5,8 @@ import { MidiParser } from './parser.js'
  *
  * 音符のスケジュールは MIDI のテンポ（data.tempo）通りに行う。
  * 再生タイミングは一切変更しない。
+ *
+ * UI層（Element）への依存なし。oscillatorType / volume は呼び出し側から渡す。
  */
 
 export class MidiPlayer{
@@ -20,14 +21,19 @@ export class MidiPlayer{
     return MidiPlayer._audioContext
   }
 
-  static play(midi_string){
-    const code = MidiParser.get_code(midi_string)
-    return MidiPlayer.sound(code)
+  /**
+   * MIDI文字列を再生する
+   * @param {string} midiString - MIDI文字列
+   * @param {object} [options] - { oscillatorType, volume }
+   */
+  static play(midiString, options){
+    const datas = MidiParser.get_code(midiString)
+    if(!datas || !datas.length){ return { startTime: 0, duration: 0 } }
+    return MidiPlayer._schedule(datas, options || {})
   }
 
   /**
    * 複数レイヤーを同時再生する
-   * 各レイヤーに独立したオシレータ+ゲインチェーンを生成
    */
   static playLayers(layers){
     const playable = MidiPlayer._getPlayableLayers(layers)
@@ -35,7 +41,12 @@ export class MidiPlayer{
 
     let maxDuration = 0
     for(const layer of playable){
-      const result = MidiPlayer._soundLayer(layer)
+      const datas = MidiParser.get_code(layer.midiString)
+      if(!datas || !datas.length){ continue }
+      const result = MidiPlayer._schedule(datas, {
+        oscillatorType: layer.oscillatorType || 'square',
+        volume: layer.volume,
+      })
       if(result && result.duration > maxDuration){
         maxDuration = result.duration
       }
@@ -55,26 +66,25 @@ export class MidiPlayer{
   }
 
   /**
-   * 1レイヤーの音声を再生する（レイヤー固有のoscillatorTypeとvolumeを適用）
+   * パース済みデータを Web Audio API でスケジュールする（統合メソッド）
+   * @param {Array} datas - MidiParser.get_code() の結果
+   * @param {object} options - { oscillatorType?: string, volume?: number }
    */
-  static _soundLayer(layer){
-    const datas = MidiParser.get_code(layer.midiString)
-    if(!datas || !datas.length){ return null }
-
+  static _schedule(datas, options){
     const act = MidiPlayer.audio
-    const startTime = act.currentTime
+    const startTime   = act.currentTime
     const destination = act.createAnalyser()
-    const oscillator = []
-    const gain = []
-    const cnt = MidiPlayer.get_waon_count(datas)
-    const layerVolume = (layer.volume || 50) / 100
+    const cnt         = MidiPlayer._getChordCount(datas)
+    const oscillator  = []
+    const gain        = []
+
+    const oscType     = options.oscillatorType || 'square'
+    const masterVol   = (options.volume != null ? options.volume : 100) / 100
 
     for(let i=0; i<cnt; i++){
       oscillator[i] = act.createOscillator()
+      oscillator[i].type = oscType
       gain[i] = act.createGain()
-    }
-    for(let i=0; i<cnt; i++){
-      oscillator[i].type = layer.oscillatorType || 'square'
     }
     destination.fftSize = 4096
     destination.connect(act.destination)
@@ -82,11 +92,11 @@ export class MidiPlayer{
     let time = 0
     for(let i=0; i<datas.length; i++){
       const data = datas[i]
-      const volume = ((data.volume || 50) / 1000) * layerVolume
+      const vol = ((data.volume || 50) / 1000) * masterVol
 
       if(data.freq){
         for(let j=0; j<cnt; j++){
-          gain[j].gain.setValueAtTime(volume, startTime + time)
+          gain[j].gain.setValueAtTime(vol, startTime + time)
           if(data.freq.constructor === Array){
             for(let k=0; k<cnt; k++){
               const freq = data.freq[k] || data.freq[0]
@@ -98,13 +108,13 @@ export class MidiPlayer{
           }
         }
       }
-      else if(data.S === "S"){
+      else if(data.S === 'S'){
         for(let j=0; j<cnt; j++){
           gain[j].gain.setValueAtTime(0, startTime + time)
           oscillator[j].frequency.setValueAtTime(0, startTime + time)
         }
       }
-      else if(data.S === "~"){
+      else if(data.S === '~'){
         for(let j=0; j<cnt; j++){
           gain[j].gain.linearRampToValueAtTime(0, startTime + time + data.tempo)
         }
@@ -112,6 +122,7 @@ export class MidiPlayer{
       else{ continue }
       time += data.tempo
     }
+
     for(let i=0; i<cnt; i++){
       oscillator[i].start(startTime)
       oscillator[i].stop(startTime + time)
@@ -122,78 +133,15 @@ export class MidiPlayer{
     return { startTime, duration: time }
   }
 
-  static sound(datas){
-    const act = MidiPlayer.audio
-    const startTime   = act.currentTime
-    const destination = act.createAnalyser()
-    const oscillator  = []
-    const gain        = []
-    let cnt    = this.get_waon_count(datas)
-
-    for(let i=0; i<cnt; i++){
-      oscillator[i] = act.createOscillator()
-      gain[i]       = act.createGain()
-    }
-    for(let i=0; i<cnt; i++){
-      oscillator[i].type = Element.oscillator_type
-    }
-    destination.fftSize = 4096
-    destination.connect(act.destination)
-
-    let time = 0
+  /**
+   * 和音の最大同時発音数を取得
+   */
+  static _getChordCount(datas){
+    let max = 1
     for(let i=0; i<datas.length; i++){
-      let data = datas[i]
-      let volume = (data.volume || 50) / 1000
-
-      if(data.freq){
-        // 音符の開始時に gain を設定（フェードアウト後の復帰を含む）
-        for(let j=0; j<cnt; j++){
-          gain[j].gain.setValueAtTime(volume, startTime + time)
-          if(data.freq.constructor === Array){
-            for(let k=0; k<cnt; k++){
-              let freq = data.freq[k] || data.freq[0]
-              oscillator[k].frequency.setValueAtTime(freq , startTime + time)
-            }
-          }
-          else{
-            oscillator[j].frequency.setValueAtTime(data.freq , startTime + time)
-          }
-        }
-      }
-      else if(data.S === "S"){
-        for(let j=0; j<cnt; j++){
-          gain[j].gain.setValueAtTime(0, startTime + time)
-          oscillator[j].frequency.setValueAtTime(0 , startTime + time)
-        }
-      }
-      else if(data.S === "~"){
-        for(let j=0; j<cnt; j++){
-          gain[j].gain.linearRampToValueAtTime(0, startTime + time + data.tempo)
-        }
-      }
-      else{
-        continue
-      }
-      time += data.tempo
+      if(!datas[i].freq || datas[i].freq.constructor !== Array){ continue }
+      if(max < datas[i].freq.length){ max = datas[i].freq.length }
     }
-    for(let i=0; i<cnt; i++){
-      oscillator[i].start(startTime)
-      oscillator[i].stop(startTime + time)
-      oscillator[i].connect(gain[i])
-      gain[i].gain.setValueAtTime(0, startTime)
-      gain[i].connect(destination)
-    }
-    return { startTime: startTime, duration: time }
-  }
-
-  static get_waon_count(datas){
-    let max_count = 1
-    for(let i=0; i<datas.length; i++){
-      if(!datas[i].freq || datas[i].freq.constructor !== Array){continue}
-      if(max_count < datas[i].freq.length){
-        max_count = datas[i].freq.length
-      }
-    }
-    return max_count
+    return max
   }
 }
