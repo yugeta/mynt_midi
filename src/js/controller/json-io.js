@@ -198,6 +198,8 @@ export class JsonIO {
     try {
       // レイヤー形式に変換（v1.0/v2.0 両対応）
       const layerData = JsonConverter.importLayers(result.parsed)
+
+      note_clear()
       LayerModel.fromJSON(layerData)
 
       // アクティブレイヤーのmidiStringをtextareaに反映
@@ -206,7 +208,6 @@ export class JsonIO {
         Element.elm_midi_string.value = active.midiString
       }
 
-      note_clear()
       scroll_middle()
 
       this._removeInputListener()
