@@ -3,11 +3,13 @@ import { MidiParser } from './parser.js'
 
 /**
  * Web Audio API による音声再生
+ *
+ * 音符のスケジュールは MIDI のテンポ（data.tempo）通りに行う。
+ * 再生タイミングは一切変更しない。
  */
 
 export class MidiPlayer{
 
-  // AudioContext をシングルトンとして再利用
   static get audio(){
     if(!MidiPlayer._audioContext || MidiPlayer._audioContext.state === 'closed'){
       MidiPlayer._audioContext = new (window.AudioContext || window.webkitAudioContext)()

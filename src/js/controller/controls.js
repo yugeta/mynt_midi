@@ -1,12 +1,17 @@
-import { Element }    from '../ui/element.js'
-import { MidiParser } from '../midi/parser.js'
-import { MidiPlayer } from '../midi/player.js'
-import { Timebar }    from '../ui/timebar.js'
-import { Timeline }   from '../ui/timeline.js'
-import { get_msec, get_fulltime, set_msec } from '../util/time.js'
+import { Element }     from '../ui/element.js'
+import { MidiParser }  from '../midi/parser.js'
+import { MidiPlayer }  from '../midi/player.js'
+import { StringInput } from './string-input.js'
+import { Timebar }     from '../ui/timebar.js'
+import { Timeline }    from '../ui/timeline.js'
+import { get_msec, get_fulltime, get_width, set_msec } from '../util/time.js'
 
 /**
  * 再生/停止・設定制御
+ *
+ * - Time入力欄はMIDI実再生時間で自動設定される
+ * - タイムバーは実再生時間でタイムライン右端まで移動
+ * - 終了判定は Date.now() ベース
  */
 
 export class Controls{
@@ -15,7 +20,8 @@ export class Controls{
   }
 
   async init(){
-    this.set_time()
+    // MIDI文字列から実再生時間を算出してTimeにセット
+    this.sync_time_from_midi()
     this.set_event()
   }
 
@@ -24,6 +30,7 @@ export class Controls{
     Element.elm_play.addEventListener('click'  , this.click_play.bind(this))
   }
 
+  // タイムライン全体の時間（ミリ秒）
   static get time(){
     return Number(Element.elm_time.value) * 1000
   }
@@ -35,9 +42,17 @@ export class Controls{
     Element.elm_play.setAttribute('data-status' , status)
   }
 
-  set_time(time){
-    time = time || get_fulltime() / 1000
-    Element.elm_time.value = time
+  // MIDI文字列の実再生時間からTime入力欄を設定
+  sync_time_from_midi(){
+    const midi_string = Element.elm_midi_string.value
+    const duration = StringInput.getMidiDuration(midi_string)
+    if(duration > 0){
+      // 秒単位で小数点1桁に丸める
+      Element.elm_time.value = Math.ceil(duration * 10) / 10
+    }
+    else{
+      Element.elm_time.value = get_fulltime() / 1000
+    }
   }
 
   change_time(e){
@@ -46,24 +61,36 @@ export class Controls{
     new Timeline().init()
   }
 
-  click_play(e){
+  async click_play(e){
     switch(this.play_status){
       case 'play':
+        // 停止
         this.play_status = ''
-        Controls._playStartTime = null
+        Controls._startMs = null
         break
       default: {
         this.play_status = 'play'
-        const midi_string = Element.elm_midi_string.value
-        if(!midi_string){return}
-        const midi_datas = MidiParser.get_code(midi_string)
-        Controls._noteCount = midi_datas ? midi_datas.length : 0
 
-        const result = MidiPlayer.play(midi_string)
-        if(result){
-          Controls._playStartTime = result.startTime
-          Controls._playDuration  = result.duration
+        // AudioContext の resume（初回のみ）
+        const ctx = MidiPlayer.audio
+        if(ctx.state === 'suspended'){
+          await ctx.resume()
         }
+
+        // 音声再生（テンポ通り）
+        const midi_string = Element.elm_midi_string.value
+        if(midi_string){
+          MidiPlayer.play(midi_string)
+        }
+
+        // MIDI実再生時間をタイムバーの移動時間として使う
+        const midiDuration = StringInput.getMidiDuration(midi_string)
+        const totalMs = midiDuration > 0 ? midiDuration * 1000 : Controls.time
+
+        // タイムバーアニメーション開始
+        Controls._startMs = Date.now()
+        Controls._totalMs = totalMs
+        Controls._timelineWidth = get_width()
         this.play_control()
         break
       }
@@ -71,24 +98,24 @@ export class Controls{
   }
 
   play_control(){
-    if(this.play_status !== 'play'){
-      Controls._playStartTime = null
+    if(this.play_status !== 'play' || !Controls._startMs){
       return
     }
-    if(!Controls._playStartTime){return}
 
-    const elapsed_sec = MidiPlayer.audio.currentTime - Controls._playStartTime
+    const elapsed = Date.now() - Controls._startMs
+    const total   = Controls._totalMs
+    const width   = Controls._timelineWidth
 
-    if(Controls._playDuration && elapsed_sec >= Controls._playDuration){
+    // 終了判定
+    if(elapsed >= total){
+      this._timebar.set_bar_pos(width)
       this.play_status = ''
-      Controls._playStartTime = null
+      Controls._startMs = null
       return
     }
 
-    const progress_ratio = Controls._playDuration > 0 ? elapsed_sec / Controls._playDuration : 0
-    const total_width = Controls._noteCount * Element.default_note_width
-    const left = progress_ratio * total_width
-
+    // 進捗に応じたピクセル位置
+    const left = (elapsed / total) * width
     this._timebar.set_bar_pos(left)
 
     window.requestAnimationFrame(this.play_control.bind(this))
