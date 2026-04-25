@@ -259,12 +259,43 @@ UI統合によるAI API直接呼び出しは未実装。
 以下のプロンプトをGPT、Claude、Gemini等に渡すことで、
 MYNT MIDIにインポート可能なJSONを出力させることができる。
 
-## JSON出力用プロンプト（推奨）
+## JSON出力用プロンプト（推奨・レイヤー対応版）
 
 ```
 あなたは作曲AIです。以下のJSON形式で楽曲データを出力してください。
+複数パート（メロディ、ベース、コード等）はレイヤーとして分離してください。
 
 ## 出力フォーマット
+
+### 複数レイヤー形式（推奨）
+
+{
+  "format_version": "2.0",
+  "layers": [
+    {
+      "name": "Melody",
+      "oscillatorType": "square",
+      "volume": 70,
+      "bpm": 120,
+      "notes": [
+        { "pitch": "C5", "duration": "4n" },
+        { "pitch": "E5", "duration": "4n" }
+      ]
+    },
+    {
+      "name": "Bass",
+      "oscillatorType": "triangle",
+      "volume": 50,
+      "bpm": 120,
+      "notes": [
+        { "pitch": "C3", "duration": "2n" },
+        { "pitch": "G2", "duration": "2n" }
+      ]
+    }
+  ]
+}
+
+### 単一レイヤー形式（シンプルな効果音向け）
 
 {
   "bpm": 120,
@@ -277,8 +308,37 @@ MYNT MIDIにインポート可能なJSONを出力させることができる。
 
 ## フィールド仕様
 
+### format_version
+"2.0" を指定。複数レイヤー形式の場合に必須。
+
+### layers (複数レイヤー形式の場合に必須)
+レイヤーの配列。各レイヤーは独立したパートを表す。
+
+### layers[].name
+レイヤー名。"Melody", "Bass", "Chord", "Percussion" 等。
+
+### layers[].oscillatorType
+音色の種類。以下の4種類から選択:
+- "square": 矩形波（ファミコン風、メロディ向き）
+- "triangle": 三角波（柔らかい音、ベース向き）
+- "sawtooth": ノコギリ波（明るく鋭い音、リード向き）
+- "sine": 正弦波（純音、フルート風）
+
+パートに応じた推奨:
+- メロディ: "square" または "sawtooth"
+- ベース: "triangle" または "sine"
+- コード/パッド: "sine" または "triangle"
+- リード/ソロ: "sawtooth" または "square"
+
+### layers[].volume
+音量。0〜100。パート間のバランスを考慮して設定する。
+- メロディ: 60〜80
+- ベース: 40〜60
+- コード/パッド: 30〜50
+
 ### bpm (必須)
 曲のテンポ。BPM（Beats Per Minute）で指定。
+複数レイヤー形式では各レイヤーに指定。全レイヤーで同じ値を使用すること。
 
 ### notes (必須)
 音符の配列。時系列順に並べる。
@@ -307,15 +367,22 @@ MYNT MIDIにインポート可能なJSONを出力させることができる。
 ### notes[].velocity (任意)
 音量。0〜127（MIDI標準）。省略時は64（中程度）。
 
+### layers[].mute / layers[].solo (任意)
+ミュート/ソロ状態。通常は false。省略可。
+
 ## 出力ルール
 - JSONのみを出力してください。説明文は不要です。
-- notes配列は再生順に並べてください。
+- 楽曲は複数レイヤー形式（format_version: "2.0"）で出力してください。
+- 最低でもメロディとベースの2レイヤーに分離してください。
+- 各レイヤーのnotes配列は再生順に並べてください。
+- 全レイヤーの再生時間（notes の合計 duration）を揃えてください。短いレイヤーは末尾に "rest" を追加して長さを合わせてください。
 - 和音は同時に鳴る音をpitch配列にまとめてください。
 - 休符は明示的に "rest" で記述してください（暗黙の休符はありません）。
+- 曲の最後は "fade" で終わらせてください。
 
 ## サンプル
 
-### コイン取得音
+### コイン取得音（単一レイヤー・効果音）
 {
   "bpm": 120,
   "notes": [
@@ -325,7 +392,7 @@ MYNT MIDIにインポート可能なJSONを出力させることができる。
   ]
 }
 
-### 1upサウンド
+### 1upサウンド（単一レイヤー・効果音）
 {
   "bpm": 120,
   "notes": [
@@ -338,28 +405,91 @@ MYNT MIDIにインポート可能なJSONを出力させることができる。
   ]
 }
 
-### 簡単なメロディ（きらきら星の冒頭）
+### 簡単なメロディ（複数レイヤー）
 {
-  "bpm": 120,
-  "notes": [
-    { "pitch": "C4", "duration": "4n" },
-    { "pitch": "C4", "duration": "4n" },
-    { "pitch": "G4", "duration": "4n" },
-    { "pitch": "G4", "duration": "4n" },
-    { "pitch": "A4", "duration": "4n" },
-    { "pitch": "A4", "duration": "4n" },
-    { "pitch": "G4", "duration": "2n" }
+  "format_version": "2.0",
+  "layers": [
+    {
+      "name": "Melody",
+      "oscillatorType": "square",
+      "volume": 70,
+      "bpm": 120,
+      "notes": [
+        { "pitch": "C5", "duration": "4n" },
+        { "pitch": "C5", "duration": "4n" },
+        { "pitch": "G5", "duration": "4n" },
+        { "pitch": "G5", "duration": "4n" },
+        { "pitch": "A5", "duration": "4n" },
+        { "pitch": "A5", "duration": "4n" },
+        { "pitch": "G5", "duration": "2n" }
+      ]
+    },
+    {
+      "name": "Bass",
+      "oscillatorType": "triangle",
+      "volume": 45,
+      "bpm": 120,
+      "notes": [
+        { "pitch": "C3", "duration": "2n" },
+        { "pitch": "C3", "duration": "2n" },
+        { "pitch": "F3", "duration": "2n" },
+        { "pitch": "C3", "duration": "2n" }
+      ]
+    }
   ]
 }
 
-### 和音進行（C → F → G → C）
+### RPGテーマ（複数レイヤー）
 {
-  "bpm": 100,
-  "notes": [
-    { "pitch": ["C4", "E4", "G4"], "duration": "2n" },
-    { "pitch": ["F4", "A4", "C5"], "duration": "2n" },
-    { "pitch": ["G4", "B4", "D5"], "duration": "2n" },
-    { "pitch": ["C4", "E4", "G4"], "duration": "2n" }
+  "format_version": "2.0",
+  "layers": [
+    {
+      "name": "Melody",
+      "oscillatorType": "square",
+      "volume": 75,
+      "bpm": 110,
+      "notes": [
+        { "pitch": "E4", "duration": "8n" },
+        { "pitch": "G4", "duration": "8n" },
+        { "pitch": "A4", "duration": "4n" },
+        { "pitch": "G4", "duration": "4n" },
+        { "pitch": "E4", "duration": "2n" },
+        { "pitch": "C5", "duration": "4n" },
+        { "pitch": "B4", "duration": "8n" },
+        { "pitch": "A4", "duration": "8n" },
+        { "pitch": "G4", "duration": "4n" },
+        { "pitch": "E4", "duration": "2n" },
+        { "pitch": "fade", "duration": "2n" }
+      ]
+    },
+    {
+      "name": "Chord",
+      "oscillatorType": "sine",
+      "volume": 35,
+      "bpm": 110,
+      "notes": [
+        { "pitch": ["C4", "E4", "G4"], "duration": "2n" },
+        { "pitch": ["F4", "A4", "C5"], "duration": "2n" },
+        { "pitch": ["G3", "B3", "D4"], "duration": "2n" },
+        { "pitch": ["A3", "C4", "E4"], "duration": "2n" },
+        { "pitch": ["F4", "A4", "C5"], "duration": "2n" },
+        { "pitch": "fade", "duration": "2n" }
+      ]
+    },
+    {
+      "name": "Bass",
+      "oscillatorType": "triangle",
+      "volume": 50,
+      "bpm": 110,
+      "notes": [
+        { "pitch": "C3", "duration": "2n" },
+        { "pitch": "F2", "duration": "2n" },
+        { "pitch": "G2", "duration": "2n" },
+        { "pitch": "A2", "duration": "2n" },
+        { "pitch": "F2", "duration": "2n" },
+        { "pitch": "fade", "duration": "2n" }
+      ]
+    }
   ]
 }
 ```
