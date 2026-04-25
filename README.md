@@ -21,4 +21,6 @@ Update : 2024-08-17
   - bug-fix
     - preview : time-bar sync
     
+# Demo
+- https://yugeta.github.io/mynt_midi/src/
 
