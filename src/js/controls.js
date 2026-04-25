@@ -1,4 +1,5 @@
 import { Element }  from './common/element.js'
+import { Midi }     from './midi.js'
 import { Timeline } from './timeline.js'
 import { Util }     from './util.js'
 
@@ -35,35 +36,52 @@ export class Controls extends Util{
     switch(this.play_status){
       case 'play':
         this.play_status = ''
+        Controls._playStartTime = null
         break
-      default:
+      default: {
         this.play_status = 'play'
+        // MIDI データを取得して音符の総数を把握
+        const midi_string = Element.elm_midi_string.value
+        if(!midi_string){return}
+        const midi_datas = Midi.get_code(midi_string)
+        Controls._noteCount = midi_datas ? midi_datas.length : 0
+
+        // 音声再生を開始し、AudioContext の開始時刻を取得
+        const result = this.play()
+        if(result){
+          Controls._playStartTime = result.startTime
+          Controls._playDuration  = result.duration
+        }
+        // タイムバーアニメーション開始
         this.play_control()
-        this.play()
         break
+      }
     }
   }
 
   play_control(){
     if(this.play_status !== 'play'){
-      Controls.play_time = null
+      Controls._playStartTime = null
       return
     }
 
-    // current play start time
-    Controls.play_time = Controls.play_time || (+new Date())
+    if(!Controls._playStartTime){return}
 
-    // Progress time
-    let progress_time = (+new Date()) - Controls.play_time
+    // AudioContext.currentTime を基準に経過時間を計算（秒）
+    const elapsed_sec = Midi.audio.currentTime - Controls._playStartTime
 
-    // max
-    if(progress_time > Controls.time){
-      progress_time = 0
-      Controls.play_time = (+new Date())
+    // 再生終了チェック
+    if(Controls._playDuration && elapsed_sec >= Controls._playDuration){
+      this.play_status = ''
+      Controls._playStartTime = null
+      return
     }
-    
-    // get_position
-    const left = this.time2pos(progress_time)
+
+    // 経過割合から音符配置に対応するピクセル位置を計算
+    // 音符は default_note_width ずつ等間隔に配置されている
+    const progress_ratio = Controls._playDuration > 0 ? elapsed_sec / Controls._playDuration : 0
+    const total_width = Controls._noteCount * Element.default_note_width
+    const left = progress_ratio * total_width
 
     // timebar
     this.set_bar_pos(left)

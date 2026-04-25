@@ -94,20 +94,25 @@ export class Util{
   // 再生処理
   play(midi_string){
     midi_string = midi_string || Element.elm_midi_string.value
-    if(!midi_string){return}
-    Midi.play(midi_string)
+    if(!midi_string){return null}
+    return Midi.play(midi_string)
   }
 
   // timebarの移動処理
   set_bar_pos(left){
-    Element.elm_timebar_icon.style.setProperty('left',`${left}px`,'')
+    if(Element.elm_timebar_icon){
+      Element.elm_timebar_icon.style.setProperty('left',`${left}px`,'')
+    }
     this.follow_line(left)
     this.set_mmdd(left)
   }
 
   // ラインがtimebarに追従する処理
   follow_line(left){
-    Element.elm_timebar_line.style.setProperty('left',`${left}px`,'')
+    const line = Element.elm_timebar_line
+    if(line){
+      line.style.setProperty('left',`${left}px`,'')
+    }
   }
   set_mmdd(left){
     const sec_size  = this.msec * 10

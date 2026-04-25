@@ -34,7 +34,7 @@ export class Midi extends Util{
 
   static play(data){
     const code = Midi.get_code(data)
-    Midi.sound(code)
+    return Midi.sound(code)
   }
 
   static get_code(str){
@@ -272,6 +272,7 @@ export class Midi extends Util{
 
   static sound(datas){
     const act  = Midi.audio
+    const startTime   = act.currentTime
     const destination = act.createAnalyser()
     const oscillator  = []
     const gain        = []
@@ -296,22 +297,22 @@ export class Midi extends Util{
           if(data.freq.constructor === Array){
             for(let i=0; i<cnt; i++){
               let freq = data.freq[i] || data.freq[0]
-              oscillator[i].frequency.setValueAtTime(freq , time)
+              oscillator[i].frequency.setValueAtTime(freq , startTime + time)
             }
           }
           else{
-            oscillator[i].frequency.setValueAtTime(data.freq , time)
+            oscillator[i].frequency.setValueAtTime(data.freq , startTime + time)
           }
         }
       }
       else if(data.S === "S"){
         for(let i=0; i<cnt; i++){
-          oscillator[i].frequency.setValueAtTime(0 , time)
+          oscillator[i].frequency.setValueAtTime(0 , startTime + time)
         }
       }
       else if(data.S === "~"){
         for(let i=0; i<cnt; i++){
-          gain[i].gain.linearRampToValueAtTime(0, time + data.tempo)
+          gain[i].gain.linearRampToValueAtTime(0, startTime + time + data.tempo)
         }
       }
       else{
@@ -320,12 +321,13 @@ export class Midi extends Util{
       time += data.tempo
     }
     for(let i=0; i<cnt; i++){
-      oscillator[i].start(0)
-      oscillator[i].stop(time)
+      oscillator[i].start(startTime)
+      oscillator[i].stop(startTime + time)
       oscillator[i].connect(gain[i])
       gain[i].gain.value = volume
       gain[i].connect(destination)
     }
+    return { startTime : startTime, duration : time }
   }
 
   static get_waon_count(datas){
