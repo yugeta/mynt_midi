@@ -1,3 +1,7 @@
+/**
+ * SVGインライン展開
+ */
+
 export class SvgImport{
 
   static get targets(){
@@ -32,34 +36,25 @@ export class SvgImport{
         callback(SvgImport.datas[src])
       }
       else{
-        SvgImport.loaded_svg(elm , {
-          target:{response:SvgImport.datas[src]}
-        })
+        SvgImport.loaded_svg(elm , { target:{response:SvgImport.datas[src]} })
       }
       return 
     }
-
     const xhr = new XMLHttpRequest()
     xhr.open('get' , src , true)
-    xhr.setRequestHeader('Content-Type', SvgImport.mime);
+    xhr.setRequestHeader('Content-Type', SvgImport.mime)
     xhr.onreadystatechange = ((elm , e) => {
       if(xhr.readyState !== XMLHttpRequest.DONE){return}
-      const status = xhr.status;
+      const status = xhr.status
       if (status === 0 || (status >= 200 && status < 400)) {
         SvgImport.datas[src] = e.target.response
-        if(callback){
-          callback(e.target.response)
-        }
-        else{
-          SvgImport.loaded_svg(elm , e)
-        }
-      // }
-      // else {
-      //   SvgImport.loaded_svg(elm , e)
+        if(callback){ callback(e.target.response) }
+        else{ SvgImport.loaded_svg(elm , e) }
       }
     }).bind(this , elm)
     xhr.send()
   }
+
   static loaded_svg(elm , res){
     if(!res || !res.target.response){return}
     const parser = new DOMParser()
@@ -70,9 +65,7 @@ export class SvgImport{
     elm.parentNode.removeChild(elm)
   }
 
-  static load_img(elm , src){
-
-  }
+  static load_img(elm , src){}
 
   static get_ext(file){
     if(!file){return}
@@ -80,14 +73,10 @@ export class SvgImport{
     return sp[sp.length-1]
   }
 
-  static create_svg(){
-    return document.createElementNS('http://www.w3.org/2000/svg' , 'svg')
-  }
-
   static remove_style(svg){
-    var styles = svg.getElementsByTagName("style");
-    for(var i=styles.length-1; i>=0; i--){
-      styles[i].parentNode.removeChild(styles[i]);
+    const styles = svg.getElementsByTagName("style")
+    for(let i=styles.length-1; i>=0; i--){
+      styles[i].parentNode.removeChild(styles[i])
     }
     return svg
   }
@@ -100,9 +89,4 @@ export class SvgImport{
       new_svg.setAttribute(attr.nodeName , attr.nodeValue)
     }
   }
-
-  static get_svg(elm , src , callback){
-    const svg = SvgImport.load_svg(elm , src , callback)
-  }
-
 }

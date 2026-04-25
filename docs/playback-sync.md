@@ -78,3 +78,51 @@ const elapsed = (Midi.audio.currentTime - this._playStartTime) * 1000  // ミリ
 - タイムバーの位置と音声再生が正確に同期する
 - AudioContext の currentTime を唯一の時間源とすることでドリフトが発生しない
 - 再生終了時にタイムバーが正しい位置で停止する
+
+---
+
+# 実施記録
+
+## Phase 1: AudioContext.currentTime ベースへの統一 ✅ 完了
+
+### Midi.sound() の修正
+- すべての `setValueAtTime` / `start` / `stop` を `act.currentTime` 基準にオフセット
+- `{ startTime, duration }` を戻り値として返すように変更
+
+### Midi.play() / Util.play() の修正
+- 戻り値をそのまま返すように変更
+
+### Controls の修正
+- `click_play()` で `this.play()` の戻り値から `startTime` を保持
+- `play_control()` で `Date.now()` → `Midi.audio.currentTime` に変更
+
+## Phase 2: 追加バグ修正 ✅ 完了
+
+### play_control の再帰呼び出しバグ
+- `requestAnimationFrame(this.play.bind(this))` → `this.play_control.bind(this)` に修正
+- `requestAnimationFrame` がコールバックにタイムスタンプ（数値）を渡すため、`Util.play(midi_string)` の引数に数値が入り MIDI パースに失敗していた
+
+### Css.get_rules / get_rule の SecurityError
+- クロスオリジンのスタイルシートの `cssRules` にアクセスすると `SecurityError` が発生
+- `try-catch` で囲んでアクセスできないスタイルシートをスキップするように修正
+
+### set_bar_pos / follow_line の null チェック
+- `Element.elm_timebar_icon` / `Element.elm_timebar_line` が null の場合にエラーでアニメーションループが停止していた
+- null チェックを追加
+
+### switch 文内の const スコープ
+- `click_play()` の `default` ブロック内で `const result` を使用 → ブロックスコープ `{}` で囲んだ
+
+## Phase 3: タイムバーと音符配置の座標系統一 ✅ 完了
+
+### 問題
+- 音符は `default_note_width`（50px）ずつ等間隔に配置
+- タイムバーは `time2pos()` で経過ミリ秒からピクセル位置を計算（1秒 = 500px）
+- テンポによって音符間の実時間が変わるため、2つの座標系が一致しない
+
+### 修正
+- `play_control()` のタイムバー位置計算を変更:
+  - `経過時間 / 全再生時間` で進捗割合を算出
+  - `音符の総数 × default_note_width` で全体幅を算出
+  - `進捗割合 × 全体幅` でピクセル位置を決定
+- `click_play()` で MIDI データの音符数を事前に取得して保持

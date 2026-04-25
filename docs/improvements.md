@@ -105,3 +105,27 @@ Array に文字列キーで代入すると、`length` が正しく動作しま�
 | 低 | 6. イベントリスナー重複 | エッジケース |
 | 低 | 8. SvgImport キャッシュ | 軽微な問題 |
 | 低 | 10. 文字列入力エリア非表示 | UX改善 |
+
+---
+
+# 追加改修
+
+## 11. 再生ボタンが動作しない問題 ✅ 完了
+
+- `play_control()` 内の `requestAnimationFrame(this.play.bind(this))` が `Util.play()` を呼んでいた
+- `requestAnimationFrame` がタイムスタンプを引数に渡すため MIDI パースに失敗
+- `this.play_control.bind(this)` に修正
+
+## 12. Css.get_rules の SecurityError ✅ 完了
+
+- クロスオリジンのスタイルシートの `cssRules` アクセスで `SecurityError` が発生
+- `try-catch` でスキップするように修正
+
+## 13. 再生バーと音声の同期 ✅ 完了
+
+詳細は `docs/playback-sync.md` を参照。
+
+- AudioContext.currentTime を唯一の時間基準に統一
+- Midi.sound() のスケジュールを currentTime ベースに変更
+- タイムバー位置計算を音符配置の座標系に合わせて修正
+- set_bar_pos / follow_line に null チェック追加

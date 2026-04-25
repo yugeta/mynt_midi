@@ -1,10 +1,5 @@
 /**
- * # options
- *   // cssの値をセットする場合
- *   set_css(selector , property , value)
- * 
- *   // cssの値を取得する場合
- *   get_css(selector , property)
+ * CSS変数の動的読み書き
  */
 
 export class Css{
@@ -39,29 +34,11 @@ export class Css{
     return Css.get_last_stylesheet()
   }
 
-
-  static get_ss(selector , property){
-    const styleSheets = Array.from(document.styleSheets).filter((styleSheet) => !styleSheet.href || styleSheet.href.startsWith(window.location.origin))
-    let value = null
-    for(const ss of styleSheets){
-      if(!ss.cssRules){continue}
-      for(const cssRule of ss.cssRules){
-        if(!cssRule.styleSheet || !cssRule.styleSheet.cssRules){continue}
-        for(const rule of cssRule.styleSheet.cssRules){
-          if(rule.selectorText !== selector){continue}
-          value = rule.style[property]
-        }
-      }
-    }
-    return value;
-  }
-
   static get_css(selector , property){
     const rules = Css.get_rules(selector)
     let value = null
     for(const rule of rules){
       value = rule.style.getPropertyValue(property) || value
-
     }
     return value
   }
@@ -79,11 +56,11 @@ export class Css{
       }catch(e){
         continue
       }
-      const res =  this.get_rule(ss.cssRules , selector)
+      const res = this.get_rule(ss.cssRules , selector)
       if(!res || !res.length){continue}
       arr = arr.concat(res)
     }
-    return arr;
+    return arr
   }
 
   static get_rule(rules , selector){
@@ -103,6 +80,6 @@ export class Css{
         continue
       }
     }
-    return arr;
+    return arr
   }
 }

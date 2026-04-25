@@ -1,12 +1,11 @@
-import { Keyboard }  from './keyboard.js'
-import { Editor }    from './editor.js'
-import { Event }     from './event.js'
-import { Timeline }  from './timeline.js'
-import { Timebar }   from './timebar.js'
-import { Controls }  from './controls.js'
-import { String }    from './string.js'
-import { SvgImport } from './common/svg_import.js'
-
+import { Keyboard }    from './ui/keyboard.js'
+import { Editor }      from './ui/editor.js'
+import { Timeline }    from './ui/timeline.js'
+import { Timebar }     from './ui/timebar.js'
+import { Controls }    from './controller/controls.js'
+import { ScrollSync }  from './controller/scroll-sync.js'
+import { StringInput } from './controller/string-input.js'
+import { SvgImport }   from './core/svg-import.js'
 
 class Main{
   constructor(){
@@ -18,13 +17,12 @@ class Main{
     await new Editor().init()
     await new Timeline().init()
     await new Timebar().init()
-    await new Event().init()
+    await new ScrollSync().init()
     await new Controls().init()
-    await new String().init()
+    await new StringInput().init()
     await new SvgImport().init()
   }
 }
-
 
 switch(document.readyState){
   case 'complete':

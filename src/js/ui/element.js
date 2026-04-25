@@ -1,3 +1,7 @@
+/**
+ * DOM要素アクセサ
+ */
+
 export class Element{
   static get elm_midiFrame(){
     return document.querySelector(`.midi-frame[data-type='editor']`)
@@ -17,35 +21,26 @@ export class Element{
   static get elm_timeline(){
     return this.elm_headerFrame.querySelector('.timeline')
   }
-
   static get elm_midi_string(){
     return document.querySelector(`[name='midi-string']`)
   }
-
   static get octave_count(){
     return 11
   }
-
   static get oscillator_type(){
     return document.querySelector(`[name='oscillator_type']`).value
   }
-
   static get elm_time(){
     return document.querySelector(`input[name='time']`)
   }
-
-
   static get default_note_width(){
     return 50
   }
-
   static get notes(){
     return Element.elm_editor.querySelectorAll(`.note`)
   }
 
-  /**
-   * Timebar
-   */
+  // Timebar
   static get elm_timebar_area(){
     return document.querySelector(`.timebar-area`)
   }
@@ -65,12 +60,8 @@ export class Element{
     return Element.elm_timeline.querySelectorAll(`.sec,.msec`)
   }
 
-  /**
-   * Control
-   */
+  // Control
   static get elm_play(){
     return document.querySelector(`[name='play'] .play`)
   }
-  
-  
 }
