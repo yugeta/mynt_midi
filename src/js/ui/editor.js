@@ -113,13 +113,51 @@ export class Editor{
   note_move_start(e){
     const note = e.target.closest('.note')
     if(!note){return}
-    this.move_note = { elm: note, mouse: e.pageX, left: note.offsetLeft }
+    this.move_note = { elm: note, mouseX: e.pageX, mouseY: e.pageY, left: note.offsetLeft, top: note.offsetTop }
   }
   note_move_move(e){
     if(!this.move_note){return}
-    let left = this.move_note.left - (this.move_note.mouse - e.pageX)
+    // 横方向
+    let left = this.move_note.left - (this.move_note.mouseX - e.pageX)
     left = this.note_pos_adjust(left)
+    if(left < 0){ left = 0 }
     this.move_note.elm.style.setProperty('left' , `${left}px` , '')
+
+    // 縦方向: マウス位置から最も近いキー行にスナップ
+    const editor_rect = Element.elm_editor.getBoundingClientRect()
+    const mouseY_in_editor = e.pageY - editor_rect.top + Element.elm_editor.scrollTop
+    const key_row = this.find_key_row_at(mouseY_in_editor)
+    if(key_row){
+      const top = key_row.elm.offsetTop + key_row.octave.offsetTop
+      this.move_note.elm.style.setProperty('top', `${top}px`, '')
+      this.move_note.elm.setAttribute('data-type'  , key_row.elm.getAttribute('data-type'))
+      this.move_note.elm.setAttribute('data-key'   , key_row.elm.getAttribute('data-key'))
+      this.move_note.elm.setAttribute('data-octave', key_row.octave.getAttribute('data-octave'))
+    }
+  }
+
+  find_key_row_at(y){
+    const octaves = Element.elm_editor.querySelectorAll('.octave')
+    for(const octave of octaves){
+      const ot = octave.offsetTop
+      const oh = octave.offsetHeight
+      if(y < ot || y >= ot + oh){ continue }
+      const keys = octave.querySelectorAll('[data-key]')
+      let closest = null
+      let minDist = Infinity
+      for(const key of keys){
+        const kt = ot + key.offsetTop
+        const kh = key.offsetHeight
+        const center = kt + kh / 2
+        const dist = Math.abs(y - center)
+        if(dist < minDist){
+          minDist = dist
+          closest = { elm: key, octave: octave }
+        }
+      }
+      return closest
+    }
+    return null
   }
   note_move_end(e){
     if(!this.move_note){return}
