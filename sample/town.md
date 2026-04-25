@@ -564,3 +564,47 @@
 
 ```
 
+## ChatGPT
+```
+{
+  "bpm": 115,
+  "notes": [
+    { "pitch": "C4", "duration": "8n", "velocity": 80 },
+    { "pitch": "E4", "duration": "8n", "velocity": 85 },
+    { "pitch": "G4", "duration": "8n", "velocity": 90 },
+    { "pitch": "E4", "duration": "8n", "velocity": 85 },
+    { "pitch": "D4", "duration": "8n", "velocity": 80 },
+    { "pitch": "F4", "duration": "8n", "velocity": 85 },
+    { "pitch": "A4", "duration": "8n", "velocity": 90 },
+    { "pitch": "F4", "duration": "8n", "velocity": 85 },
+
+    { "pitch": ["C3", "G3"], "duration": "4n", "velocity": 70 },
+    { "pitch": ["F3", "A3"], "duration": "4n", "velocity": 70 },
+    { "pitch": ["G3", "B3"], "duration": "4n", "velocity": 75 },
+    { "pitch": ["C4", "E4"], "duration": "4n", "velocity": 75 },
+
+    { "pitch": "E4", "duration": "8n", "velocity": 85 },
+    { "pitch": "G4", "duration": "8n", "velocity": 90 },
+    { "pitch": "A4", "duration": "8n", "velocity": 95 },
+    { "pitch": "G4", "duration": "8n", "velocity": 90 },
+    { "pitch": "F4", "duration": "8n", "velocity": 88 },
+    { "pitch": "D4", "duration": "8n", "velocity": 85 },
+    { "pitch": "C4", "duration": "4n", "velocity": 80 },
+
+    { "pitch": ["A3", "C4", "E4"], "duration": "4n", "velocity": 75 },
+    { "pitch": ["D4", "F4", "A4"], "duration": "4n", "velocity": 80 },
+    { "pitch": ["G3", "B3", "D4"], "duration": "4n", "velocity": 80 },
+    { "pitch": ["C4", "E4", "G4"], "duration": "4n", "velocity": 85 },
+
+    { "pitch": "G4", "duration": "8n", "velocity": 95 },
+    { "pitch": "A4", "duration": "8n", "velocity": 100 },
+    { "pitch": "C5", "duration": "4n", "velocity": 105 },
+    { "pitch": "B4", "duration": "8n", "velocity": 95 },
+    { "pitch": "A4", "duration": "8n", "velocity": 90 },
+    { "pitch": "G4", "duration": "4n", "velocity": 90 },
+
+    { "pitch": ["C3", "G3", "E4"], "duration": "1n", "velocity": 100 },
+    { "pitch": "fade", "duration": "2n" }
+  ]
+}
+```

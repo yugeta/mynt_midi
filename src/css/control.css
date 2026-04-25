@@ -134,3 +134,20 @@
 .controls{
   display: none;
 }
+
+/* Trim button */
+.transport-right .trim-btn{
+  background: #444;
+  color: #ccc;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 0 10px;
+  height: 26px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.transport-right .trim-btn:hover{
+  background: #555;
+  color: #fff;
+}

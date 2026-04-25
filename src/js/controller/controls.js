@@ -30,6 +30,11 @@ export class Controls{
     Element.elm_time.addEventListener('change' , this.change_time.bind(this))
     Element.elm_play.addEventListener('click'  , this.click_play.bind(this))
     Element.elm_loop.addEventListener('click'  , this.click_loop.bind(this))
+
+    const trimBtn = document.querySelector('.trim-btn')
+    if(trimBtn){
+      trimBtn.addEventListener('click', this.click_trim.bind(this))
+    }
   }
 
   // タイムライン全体の時間（ミリ秒）
@@ -71,6 +76,27 @@ export class Controls{
     if(sec <= 0){ return }
     const msec = get_msec()
     const sec_step = 10  // 1秒あたりの目盛り数
+    const newWidth = sec * sec_step * msec
+    set_width(newWidth)
+    new Timeline().init()
+  }
+
+  /**
+   * Trim: 全レイヤーのMIDI再生時間にTimeをフィットさせる
+   */
+  click_trim(){
+    let maxDuration = 0
+    for(const layer of LayerModel.layers){
+      if(!layer.midiString){ continue }
+      const dur = StringInput.getMidiDuration(layer.midiString)
+      if(dur > maxDuration){ maxDuration = dur }
+    }
+    if(maxDuration <= 0){ return }
+
+    const sec = Math.ceil(maxDuration * 10) / 10
+    Element.elm_time.value = sec
+    const msec = get_msec()
+    const sec_step = 10
     const newWidth = sec * sec_step * msec
     set_width(newWidth)
     new Timeline().init()
