@@ -30,23 +30,23 @@
 
 ## Phase 2: レイヤーごとの独立再生
 
-- [ ] 6. MidiPlayerのレイヤー対応
-  - [ ] 6.1 `src/js/midi/player.js` に `playLayers(layers)` メソッドを追加し、各レイヤーに独立したオシレータ+ゲインチェーンを生成する
-  - [ ] 6.2 各レイヤーのoscillatorTypeとvolume（0〜100→0.0〜1.0変換）を適用する処理を実装する
-  - [ ] 6.3 再生可能レイヤーのフィルタリングロジック（solo優先、mute除外）を実装する
-  - [ ] 6.4 `src/js/controller/controls.js` の `click_play` を修正し、LayerModelからレイヤー情報を取得して `playLayers()` を呼び出す
+- [x] 6. MidiPlayerのレイヤー対応
+  - [x] 6.1 `src/js/midi/player.js` に `playLayers(layers)` メソッドを追加し、各レイヤーに独立したオシレータ+ゲインチェーンを生成する
+  - [x] 6.2 各レイヤーのoscillatorTypeとvolume（0〜100→0.0〜1.0変換）を適用する処理を実装する
+  - [x] 6.3 再生可能レイヤーのフィルタリングロジック（solo優先、mute除外）を実装する
+  - [x] 6.4 `src/js/controller/controls.js` の `click_play` を修正し、LayerModelからレイヤー情報を取得して `playLayers()` を呼び出す
 
 ## Phase 3: エディタカラーコード表示 + JSON対応
 
-- [ ] 7. ピアノロールエディタのカラーコード表示
-  - [ ] 7.1 `src/js/ui/editor.js` に `renderAllLayers()` メソッドを追加し、全レイヤーのノートを描画する
-  - [ ] 7.2 ノートDOM要素に `data-layer-id` 属性と、レイヤーカラーに基づくスタイル（border-color, background-color）を適用する
-  - [ ] 7.3 アクティブレイヤーのノートを不透明、それ以外を半透明（opacity 0.3）で表示する処理を実装する
-  - [ ] 7.4 アクティブレイヤーのノートのみ編集可能にし、他レイヤーのノートへのクリック・ドラッグを無視する処理を実装する
-  - [ ] 7.5 `src/css/editor.css` にレイヤーカラー対応のノートスタイルを追加する
-- [ ] 8. JSON Import/Exportのレイヤー対応
-  - [ ] 8.1 `src/js/midi/json-converter.js` に `exportLayers(layers)` メソッドを追加し、format_version "2.0" のJSON文字列を生成する
-  - [ ] 8.2 `importLayers(jsonStr)` メソッドを追加し、v2.0形式のlayers配列からレイヤーデータを復元する
-  - [ ] 8.3 `detectFormat(jsonStr)` メソッドを追加し、layers配列の有無でフォーマットバージョンを判定する
-  - [ ] 8.4 旧形式JSON（v1.0）のインポート時に単一レイヤーとして変換する後方互換処理を実装する
-  - [ ] 8.5 `src/js/controller/json-io.js` のImport/Exportフローを修正し、LayerModelと連携する
+- [x] 7. ピアノロールエディタのカラーコード表示
+  - [x] 7.1 `src/js/ui/editor.js` に `renderAllLayers()` メソッドを追加し、全レイヤーのノートを描画する
+  - [x] 7.2 ノートDOM要素に `data-layer-id` 属性と、レイヤーカラーに基づくスタイル（border-color, background-color）を適用する
+  - [x] 7.3 アクティブレイヤーのノートを不透明、それ以外を半透明（opacity 0.3）で表示する処理を実装する
+  - [x] 7.4 アクティブレイヤーのノートのみ編集可能にし、他レイヤーのノートへのクリック・ドラッグを無視する処理を実装する
+  - [x] 7.5 `src/css/editor.css` にレイヤーカラー対応のノートスタイルを追加する
+- [x] 8. JSON Import/Exportのレイヤー対応
+  - [x] 8.1 `src/js/midi/json-converter.js` に `exportLayers(layers)` メソッドを追加し、format_version "2.0" のJSON文字列を生成する
+  - [x] 8.2 `importLayers(jsonStr)` メソッドを追加し、v2.0形式のlayers配列からレイヤーデータを復元する
+  - [x] 8.3 `detectFormat(jsonStr)` メソッドを追加し、layers配列の有無でフォーマットバージョンを判定する
+  - [x] 8.4 旧形式JSON（v1.0）のインポート時に単一レイヤーとして変換する後方互換処理を実装する
+  - [x] 8.5 `src/js/controller/json-io.js` のImport/Exportフローを修正し、LayerModelと連携する

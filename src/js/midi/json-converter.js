@@ -222,4 +222,72 @@ export class JsonConverter {
     if (volume === undefined || volume === 50) { return 64 }
     return Math.round((volume / 100) * 127)
   }
+
+  // =========================================
+  //  レイヤー対応
+  // =========================================
+
+  /** 全レイヤーデータ → JSON文字列 */
+  static exportLayers(layers) {
+    return JSON.stringify({
+      format_version: "2.0",
+      layers: layers.map(l => ({
+        id: l.id,
+        name: l.name,
+        oscillatorType: l.oscillatorType,
+        color: l.color,
+        volume: l.volume,
+        mute: l.mute,
+        solo: l.solo,
+        visible: l.visible,
+        bpm: 120,
+        notes: JSON.parse(JsonConverter.toJson(l.midiString)).notes
+      }))
+    }, null, 2)
+  }
+
+  /** JSON文字列 → LayerModel用データ */
+  static importLayers(jsonStr) {
+    const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr
+    const format = JsonConverter.detectFormat(data)
+
+    if (format === "2.0") {
+      return {
+        format_version: "2.0",
+        layers: data.layers.map(l => ({
+          id: l.id,
+          name: l.name || "Note",
+          oscillatorType: l.oscillatorType || "square",
+          color: l.color,
+          midiString: l.midiString || (l.notes ? JsonConverter.toMidiString({ bpm: l.bpm || 120, notes: l.notes }) : ""),
+          volume: l.volume !== undefined ? l.volume : 50,
+          mute: !!l.mute,
+          solo: !!l.solo,
+          visible: l.visible !== false,
+        }))
+      }
+    }
+
+    // v1.0: 旧形式を単一レイヤーに変換
+    const midiStr = JsonConverter.toMidiString(data)
+    return {
+      format_version: "2.0",
+      layers: [{
+        name: "Note 1",
+        oscillatorType: "square",
+        midiString: midiStr,
+        volume: 50,
+        mute: false,
+        solo: false,
+        visible: true,
+      }]
+    }
+  }
+
+  /** フォーマットバージョン判定 */
+  static detectFormat(data) {
+    const obj = typeof data === 'string' ? JSON.parse(data) : data
+    if (obj.layers && Array.isArray(obj.layers)) { return "2.0" }
+    return "1.0"
+  }
 }

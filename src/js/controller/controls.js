@@ -1,6 +1,7 @@
 import { Element }     from '../ui/element.js'
 import { MidiParser }  from '../midi/parser.js'
 import { MidiPlayer }  from '../midi/player.js'
+import { LayerModel }  from '../midi/layer-model.js'
 import { StringInput } from './string-input.js'
 import { Timebar }     from '../ui/timebar.js'
 import { Timeline }    from '../ui/timeline.js'
@@ -71,6 +72,22 @@ export class Controls{
     new Timeline().init()
   }
 
+  /**
+   * 全レイヤーの最大再生時間（ミリ秒）を取得
+   */
+  static _getMaxDuration(){
+    let maxMs = 0
+    for(const layer of LayerModel.layers){
+      if(!layer.midiString){continue}
+      const dur = StringInput.getMidiDuration(layer.midiString)
+      if(dur > 0){
+        const ms = dur * 1000
+        if(ms > maxMs){ maxMs = ms }
+      }
+    }
+    return maxMs > 0 ? maxMs : Controls.time
+  }
+
   async click_play(e){
     switch(this.play_status){
       case 'play':
@@ -91,15 +108,11 @@ export class Controls{
           await ctx.resume()
         }
 
-        // 音声再生（テンポ通り）
-        const midi_string = Element.elm_midi_string.value
-        if(midi_string){
-          MidiPlayer.play(midi_string)
-        }
+        // 音声再生（全レイヤー同時再生）
+        MidiPlayer.playLayers(LayerModel.layers)
 
-        // MIDI実再生時間をタイムバーの移動時間として使う
-        const midiDuration = StringInput.getMidiDuration(midi_string)
-        const totalMs = midiDuration > 0 ? midiDuration * 1000 : Controls.time
+        // 全レイヤーの最大再生時間をタイムバーの移動時間として使う
+        const totalMs = Controls._getMaxDuration()
 
         // タイムバーアニメーション開始
         Controls._startMs = Date.now()
@@ -127,10 +140,7 @@ export class Controls{
       // ループモード: 先頭に戻って再生を繰り返す
       if(this.loop_enabled){
         this._timebar.set_bar_pos(0)
-        const midi_string = Element.elm_midi_string.value
-        if(midi_string){
-          MidiPlayer.play(midi_string)
-        }
+        MidiPlayer.playLayers(LayerModel.layers)
         Controls._startMs = Date.now()
         window.requestAnimationFrame(this.play_control.bind(this))
         return

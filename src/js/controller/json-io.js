@@ -8,6 +8,7 @@
 import { JsonConverter } from '../midi/json-converter.js'
 import { Element }       from '../ui/element.js'
 import { MidiModel }     from '../midi/model.js'
+import { LayerModel }    from '../midi/layer-model.js'
 import { StringInput }   from './string-input.js'
 import { note_clear, scroll_middle } from '../util/position.js'
 
@@ -83,8 +84,18 @@ export class JsonIO {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
       return { ok: false, error: 'トップレベルはオブジェクトである必要があります' }
     }
+
+    // v2.0 レイヤー形式
+    if (parsed.layers && Array.isArray(parsed.layers)) {
+      if (parsed.layers.length === 0) {
+        return { ok: false, error: '"layers" 配列に1つ以上のレイヤーが必要です' }
+      }
+      return { ok: true, parsed, format: "2.0" }
+    }
+
+    // v1.0 旧形式
     if (!Array.isArray(parsed.notes)) {
-      return { ok: false, error: '"notes" 配列が必要です' }
+      return { ok: false, error: '"notes" 配列または "layers" 配列が必要です' }
     }
     for (let i = 0; i < parsed.notes.length; i++) {
       const note = parsed.notes[i]
@@ -95,7 +106,7 @@ export class JsonIO {
         return { ok: false, error: `notes[${i}]: "duration" が必要です` }
       }
     }
-    return { ok: true, parsed }
+    return { ok: true, parsed, format: "1.0" }
   }
 
   // --- Import ---
@@ -185,14 +196,17 @@ export class JsonIO {
     }
 
     try {
-      // MIDI文字列に変換
-      const midiStr = JsonConverter.toMidiString(result.parsed)
+      // レイヤー形式に変換（v1.0/v2.0 両対応）
+      const layerData = JsonConverter.importLayers(result.parsed)
+      LayerModel.fromJSON(layerData)
 
-      // textareaに反映 → 既存フローに合流
-      Element.elm_midi_string.value = midiStr
+      // アクティブレイヤーのmidiStringをtextareaに反映
+      const active = LayerModel.activeLayer
+      if (active && Element.elm_midi_string) {
+        Element.elm_midi_string.value = active.midiString
+      }
+
       note_clear()
-      MidiModel.fromString(midiStr)
-      StringInput.renderFromModel()
       scroll_middle()
 
       this._removeInputListener()
@@ -213,8 +227,7 @@ export class JsonIO {
     const formatBtn = document.querySelector('.json-modal-format')
     const errorEl = document.querySelector('.json-modal-error')
 
-    const midiStr = Element.elm_midi_string.value
-    const json = JsonConverter.toJson(midiStr)
+    const json = JsonConverter.exportLayers(LayerModel.layers)
 
     title.textContent = 'JSON Export'
     textarea.value = json

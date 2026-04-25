@@ -22,6 +22,103 @@ export class MidiPlayer{
     return MidiPlayer.sound(code)
   }
 
+  /**
+   * 複数レイヤーを同時再生する
+   * 各レイヤーに独立したオシレータ+ゲインチェーンを生成
+   */
+  static playLayers(layers){
+    const playable = MidiPlayer._getPlayableLayers(layers)
+    if(!playable.length){ return { startTime: 0, duration: 0 } }
+
+    let maxDuration = 0
+    for(const layer of playable){
+      const result = MidiPlayer._soundLayer(layer)
+      if(result && result.duration > maxDuration){
+        maxDuration = result.duration
+      }
+    }
+    return { startTime: MidiPlayer.audio.currentTime, duration: maxDuration }
+  }
+
+  /**
+   * 再生可能レイヤーのフィルタリング（solo優先、mute除外）
+   */
+  static _getPlayableLayers(layers){
+    const hasSolo = layers.some(l => l.solo)
+    if(hasSolo){
+      return layers.filter(l => l.solo && !l.mute && l.midiString)
+    }
+    return layers.filter(l => !l.mute && l.midiString)
+  }
+
+  /**
+   * 1レイヤーの音声を再生する（レイヤー固有のoscillatorTypeとvolumeを適用）
+   */
+  static _soundLayer(layer){
+    const datas = MidiParser.get_code(layer.midiString)
+    if(!datas || !datas.length){ return null }
+
+    const act = MidiPlayer.audio
+    const startTime = act.currentTime
+    const destination = act.createAnalyser()
+    const oscillator = []
+    const gain = []
+    const cnt = MidiPlayer.get_waon_count(datas)
+    const layerVolume = (layer.volume || 50) / 100
+
+    for(let i=0; i<cnt; i++){
+      oscillator[i] = act.createOscillator()
+      gain[i] = act.createGain()
+    }
+    for(let i=0; i<cnt; i++){
+      oscillator[i].type = layer.oscillatorType || 'square'
+    }
+    destination.fftSize = 4096
+    destination.connect(act.destination)
+
+    let time = 0
+    for(let i=0; i<datas.length; i++){
+      const data = datas[i]
+      const volume = ((data.volume || 50) / 1000) * layerVolume
+
+      if(data.freq){
+        for(let j=0; j<cnt; j++){
+          gain[j].gain.setValueAtTime(volume, startTime + time)
+          if(data.freq.constructor === Array){
+            for(let k=0; k<cnt; k++){
+              const freq = data.freq[k] || data.freq[0]
+              oscillator[k].frequency.setValueAtTime(freq, startTime + time)
+            }
+          }
+          else{
+            oscillator[j].frequency.setValueAtTime(data.freq, startTime + time)
+          }
+        }
+      }
+      else if(data.S === "S"){
+        for(let j=0; j<cnt; j++){
+          gain[j].gain.setValueAtTime(0, startTime + time)
+          oscillator[j].frequency.setValueAtTime(0, startTime + time)
+        }
+      }
+      else if(data.S === "~"){
+        for(let j=0; j<cnt; j++){
+          gain[j].gain.linearRampToValueAtTime(0, startTime + time + data.tempo)
+        }
+      }
+      else{ continue }
+      time += data.tempo
+    }
+    for(let i=0; i<cnt; i++){
+      oscillator[i].start(startTime)
+      oscillator[i].stop(startTime + time)
+      oscillator[i].connect(gain[i])
+      gain[i].gain.setValueAtTime(0, startTime)
+      gain[i].connect(destination)
+    }
+    return { startTime, duration: time }
+  }
+
   static sound(datas){
     const act = MidiPlayer.audio
     const startTime   = act.currentTime
