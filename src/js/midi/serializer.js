@@ -1,5 +1,6 @@
 import { Element }   from '../ui/element.js'
 import { MidiModel } from './model.js'
+import { LayerModel } from './layer-model.js'
 
 /**
  * エディタ上の音符 → MIDI文字列への変換
@@ -19,6 +20,12 @@ export class MidiSerializer{
     // モデルから文字列を生成
     const str = MidiModel.toString()
     Element.elm_midi_string.value = str
+
+    // LayerModelのアクティブレイヤーにも反映
+    const activeLayer = LayerModel.activeLayer
+    if(activeLayer){
+      activeLayer.midiString = str
+    }
   }
 
   /**

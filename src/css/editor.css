@@ -92,3 +92,22 @@
   background-color:#D88;
 }
 
+/* Layer color support */
+.editor .note.layer-active::before{
+  border-color: var(--layer-color, blue);
+  background-color: var(--layer-color, #88D);
+  opacity: 0.8;
+}
+.editor .note.layer-inactive{
+  pointer-events: none;
+  opacity: 0.3;
+}
+.editor .note.layer-inactive::before{
+  border-color: var(--layer-color, #aaa);
+  background-color: var(--layer-color, #ccc);
+}
+.editor .note.layer-active[data-status='active']::before{
+  border:1px solid red;
+  background-color:#D88;
+}
+

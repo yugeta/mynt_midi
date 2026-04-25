@@ -143,6 +143,7 @@ export class LayerModel {
       volume: Math.max(0, Math.min(100, Number(l.volume) || 50)),
       mute: !!l.mute,
       solo: !!l.solo,
+      visible: l.visible !== false,
     }))
     _activeLayerId = _layers[0].id
     LayerModel._notify()
@@ -155,13 +156,14 @@ export class LayerModel {
     const colorIndex = (_nextId - 1) % LAYER_COLORS.length
     return {
       id,
-      name: `Layer ${_nextId}`,
+      name: `Note ${_nextId}`,
       oscillatorType: oscillatorType || "square",
       color: LAYER_COLORS[colorIndex],
       midiString: midiString || "",
       volume: 50,
       mute: false,
       solo: false,
+      visible: true,
     }
   }
 

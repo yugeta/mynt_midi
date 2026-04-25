@@ -129,3 +129,17 @@ textarea[name='midi-string']{
 .json-modal-format:hover{
   opacity:0.7;
 }
+.json-modal-file-save{
+  background:#2e7d32;
+  color:#fff;
+}
+.json-modal-file-save:hover{
+  opacity:0.7;
+}
+.json-modal-file-load{
+  background:#1a6fb5;
+  color:#fff;
+}
+.json-modal-file-load:hover{
+  opacity:0.7;
+}

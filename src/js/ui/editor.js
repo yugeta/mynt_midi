@@ -113,6 +113,8 @@ export class Editor{
   note_move_start(e){
     const note = e.target.closest('.note')
     if(!note){return}
+    // アクティブレイヤーのノートのみ移動可能
+    if(note.classList.contains('layer-inactive')){return}
     this.move_note = { elm: note, mouseX: e.pageX, mouseY: e.pageY, left: note.offsetLeft, top: note.offsetTop }
   }
   note_move_move(e){
@@ -174,7 +176,10 @@ export class Editor{
   click_note(e){
     this.clear_status_all_note()
     const note = e.target.closest('.editor .note')
-    if(note){ note.setAttribute('data-status' , 'active') }
+    // アクティブレイヤーのノートのみ選択可能
+    if(note && !note.classList.contains('layer-inactive')){
+      note.setAttribute('data-status' , 'active')
+    }
   }
   clear_status_all_note(){
     const elms = Element.elm_editor.querySelectorAll(`.note[data-status='active']`)
