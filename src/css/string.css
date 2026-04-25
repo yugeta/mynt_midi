@@ -2,6 +2,26 @@
   width:100%;
   padding:10px;
 }
+.midi-string-toolbar{
+  display:flex;
+  gap:8px;
+  margin-bottom:6px;
+}
+.json-import-btn,
+.json-export-btn{
+  padding:4px 12px;
+  font-size:12px;
+  cursor:pointer;
+  border:1px solid #888;
+  border-radius:4px;
+  background:#222;
+  color:#fff;
+  transition:opacity 0.2s;
+}
+.json-import-btn:hover,
+.json-export-btn:hover{
+  opacity:0.7;
+}
 textarea[name='midi-string']{
   display:block;
   width:100%;
@@ -9,4 +29,92 @@ textarea[name='midi-string']{
   border:1px solid #ddd;
   padding:10px;
   resize:vertical;
+}
+
+/* --- JSON Modal --- */
+.json-modal-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  z-index:9999;
+  justify-content:center;
+  align-items:center;
+}
+.json-modal-overlay.active{
+  display:flex;
+}
+.json-modal{
+  background:#fff;
+  border-radius:8px;
+  width:560px;
+  max-width:90vw;
+  max-height:80vh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 4px 24px rgba(0,0,0,0.3);
+}
+.json-modal-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px 16px;
+  border-bottom:1px solid #ddd;
+}
+.json-modal-title{
+  font-size:16px;
+  font-weight:bold;
+}
+.json-modal-close{
+  font-size:24px;
+  cursor:pointer;
+  line-height:1;
+  color:#888;
+}
+.json-modal-close:hover{
+  color:#000;
+}
+.json-modal-textarea{
+  margin:12px 16px;
+  height:300px;
+  border:1px solid #ccc;
+  border-radius:4px;
+  padding:10px;
+  font-family:monospace;
+  font-size:13px;
+  resize:vertical;
+  outline:none;
+}
+.json-modal-actions{
+  display:flex;
+  gap:8px;
+  padding:0 16px 12px;
+  justify-content:flex-end;
+}
+.json-modal-btn{
+  padding:6px 20px;
+  font-size:13px;
+  cursor:pointer;
+  border:1px solid #888;
+  border-radius:4px;
+}
+.json-modal-execute{
+  background:#222;
+  color:#fff;
+}
+.json-modal-execute:hover{
+  opacity:0.7;
+}
+.json-modal-cancel{
+  background:#fff;
+  color:#333;
+}
+.json-modal-cancel:hover{
+  background:#eee;
+}
+.json-modal-error{
+  padding:0 16px 12px;
+  font-size:12px;
+  color:#d32f2f;
+  min-height:20px;
 }
