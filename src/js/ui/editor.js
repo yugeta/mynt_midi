@@ -2,6 +2,7 @@ import { Element }  from './element.js'
 import { Css }      from '../core/css.js'
 import { get_pos_x, get_pos_y } from '../util/position.js'
 import { get_msec, get_msec_step } from '../util/time.js'
+import { MidiSerializer } from '../midi/serializer.js'
 
 export class Editor{
   constructor(){}
@@ -69,6 +70,8 @@ export class Editor{
     }
     const left = this.note_pos_adjust(pos.x)
     this.put_note_editor(pos.y , left , key_type , octave , key)
+    // エディタの音符状態を textarea に同期
+    MidiSerializer.syncToTextarea()
   }
 
   fit_height(){
@@ -115,6 +118,8 @@ export class Editor{
   note_move_end(e){
     if(!this.move_note){return}
     delete this.move_note
+    // エディタの音符状態を textarea に同期
+    MidiSerializer.syncToTextarea()
   }
 
   note_pos_adjust(num){
