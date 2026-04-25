@@ -96,7 +96,7 @@ export class MidiParser{
     let res = reg.exec(mode)
     if(res){
       let arr = []
-      let chord = this.str2datas(res[1])
+      let chord = this.get_code(res[1])
       for(let i=0; i<chord.length; i++){
         arr.push(chord[i].freq)
       }
@@ -105,48 +105,6 @@ export class MidiParser{
     else{
       return mode
     }
-  }
-
-  static str2datas(str){
-    if(!str){return}
-    let T = 120, O = 5, S = "", V = 50
-    let tempo = this.tdur(T , 4), res = null, datas = [], time = 0
-    let reg = new RegExp("(\\[(.+?)\\]|[A-G~STOV]+?)([0-9\+\-]*)", "gi")
-    while ((res = reg.exec(str)) !== null) {
-      if(!res[1]){continue}
-      let mode  = res[1].toUpperCase()
-      let value = res[3]
-      let data = {}
-      if(mode === "T"){
-        if(value){ T = Number(value); tempo = this.tdur(T , 4) }
-        continue
-      }
-      else if(mode === "O"){
-        if(value){ O = Number(value); continue }
-      }
-      else if(mode === "V"){
-        if(value){ V = Number(value); continue }
-      }
-      else if(mode === "~" || mode === "S"){
-        data = { S: mode, num: null, tempo: tempo, freq: null, volume: V }
-      }
-      else if(["C","D","E","F","G","A","B"].indexOf(mode) !== -1){
-        S = value ? mode + value : mode
-        let num = this.chord_octave2num(S , O)
-        let frequency = this.mtof(num)
-        data = { S: S, num: num, tempo: tempo, freq: frequency, volume: V }
-      }
-      else{
-        let num = this.chord_octave2num(S , O)
-        let freqs = this.getOtherCode(mode)
-        data = { S: mode, num: num, tempo: tempo, freq: freqs, volume: V }
-      }
-      if(!data || !data.S){continue}
-      time += data.tempo
-      data.time = time
-      datas.push(data)
-    }
-    return datas
   }
 
   static tdur(tempo, length){
