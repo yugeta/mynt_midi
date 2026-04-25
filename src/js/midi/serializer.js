@@ -1,5 +1,6 @@
 import { MidiModel }  from './model.js'
 import { LayerModel } from './layer-model.js'
+import { px2sec }     from '../util/time.js'
 
 /**
  * エディタ上の音符 → MIDI文字列への変換
@@ -23,6 +24,7 @@ export class MidiSerializer{
     const activeLayer = LayerModel.activeLayer
     if(activeLayer){
       activeLayer.midiString = str
+      activeLayer.notesData = MidiModel.saveSnapshot()
     }
   }
 
@@ -35,9 +37,19 @@ export class MidiSerializer{
     for(const elm of domNotes){
       const id = elm.getAttribute('data-model-id')
       const left = elm.offsetLeft
+      const width = elm.offsetWidth
       const note = MidiModel.findById(id)
       if(note){
         note.left = left
+        note.width = width
+        // width → tempo/tempoVal を逆算
+        const tempo = px2sec(width)
+        if(tempo > 0){
+          note.tempo = tempo
+          note.tempoVal = Math.round(60 / tempo)
+        }
+        note.startTime = px2sec(left)
+        note.time = note.startTime + note.tempo
       }
     }
   }

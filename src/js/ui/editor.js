@@ -1,9 +1,11 @@
 import { Element }  from './element.js'
 import { Css }      from '../core/css.js'
 import { get_pos_x, get_pos_y } from '../util/position.js'
-import { get_msec, get_msec_step } from '../util/time.js'
+import { get_msec, get_msec_step, get_fulltime, set_width, sec2px } from '../util/time.js'
 import { MidiSerializer } from '../midi/serializer.js'
 import { MidiModel } from '../midi/model.js'
+import { MidiParser } from '../midi/parser.js'
+import { Timeline } from './timeline.js'
 
 export class Editor{
   constructor(){}
@@ -72,9 +74,33 @@ export class Editor{
     const left = this.note_pos_adjust(pos.x)
     // モデルに音符を追加
     const modelNote = MidiModel.addNote(octave, key, left)
-    this.put_note_editor(pos.y , left , key_type , octave , key, modelNote.id)
+    this.put_note_editor(pos.y , left , key_type , octave , key, modelNote.id, modelNote.width)
     // エディタの音符状態を textarea に同期
     MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
+    Editor._syncTimeDisplay()
+  }
+
+  /**
+   * MIDI文字列の実再生時間をTime入力欄に反映（超過時のみ拡張）
+   */
+  static _syncTimeDisplay(){
+    const str = Element.elm_midi_string ? Element.elm_midi_string.value : ''
+    if(!str || !Element.elm_time){ return }
+    const datas = MidiParser.get_code(str)
+    if(!datas || !datas.length){ return }
+
+    const duration = datas[datas.length - 1].time
+    const currentTime = Number(Element.elm_time.value) || 0
+
+    if(duration > currentTime){
+      const sec = Math.ceil(duration * 10) / 10
+      Element.elm_time.value = sec
+      const msec = get_msec()
+      const sec_step = 10
+      const newWidth = sec * sec_step * msec
+      set_width(newWidth)
+      new Timeline().init()
+    }
   }
 
   fit_height(){
@@ -90,13 +116,13 @@ export class Editor{
     return elm_octave ? elm_octave.getAttribute('data-octave') : null
   }
 
-  put_note_editor(top, left, type, octave, key, modelId){
-    const width = Element.default_note_width
+  put_note_editor(top, left, type, octave, key, modelId, noteWidth){
+    const width = noteWidth || Element.default_note_width
     const note = document.createElement('div')
     note.classList.add('note')
     note.style.setProperty('left'  , `${left}px`,'')
     note.style.setProperty('top'   , `${top}px`,'')
-    note.style.setProperty('width' , `${width}px`,'')
+    note.style.setProperty('width' , `${Math.max(4, width)}px`,'')
     note.setAttribute('data-type'   , type)
     note.setAttribute('data-octave' , octave)
     note.setAttribute('data-key'    , key)
@@ -162,6 +188,7 @@ export class Editor{
     if(!this.move_note){return}
     delete this.move_note
     MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
+    Editor._syncTimeDisplay()
   }
 
   note_pos_adjust(num){

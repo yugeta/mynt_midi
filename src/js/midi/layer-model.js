@@ -140,6 +140,7 @@ export class LayerModel {
         ? l.oscillatorType : "square",
       color: l.color || LAYER_COLORS[0],
       midiString: l.midiString || "",
+      notesData: l.notesData || null,
       volume: Math.max(0, Math.min(100, Number(l.volume) || 50)),
       mute: !!l.mute,
       solo: !!l.solo,
@@ -160,6 +161,7 @@ export class LayerModel {
       oscillatorType: oscillatorType || "square",
       color: LAYER_COLORS[colorIndex],
       midiString: midiString || "",
+      notesData: null,  // MidiModel のスナップショット（レイヤー切替時に保存）
       volume: 50,
       mute: false,
       solo: false,

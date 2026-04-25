@@ -3,7 +3,8 @@ import { MidiModel }  from '../midi/model.js'
 import { LayerModel } from '../midi/layer-model.js'
 import { Element }   from '../ui/element.js'
 import { put_note, note_clear, scroll_middle } from '../util/position.js'
-import { get_width } from '../util/time.js'
+import { get_width, get_fulltime, get_msec, set_width, sec2px } from '../util/time.js'
+import { Timeline }  from '../ui/timeline.js'
 
 /**
  * MIDI文字列入力 → エディタ音符変換
@@ -46,25 +47,65 @@ export class StringInput{
     }
     note_clear()
     this.renderAllLayers()
+    StringInput._syncTimeDisplay()
+  }
+
+  /**
+   * MIDI文字列の実再生時間をTime入力欄に反映し、タイムラインも更新する
+   * 再生時間が現在の Time を超える場合のみ自動拡張する
+   */
+  static _syncTimeDisplay(){
+    const midi_string = Element.elm_midi_string ? Element.elm_midi_string.value : ''
+    const duration = StringInput.getMidiDuration(midi_string)
+    if(!Element.elm_time){ return }
+
+    const currentTime = Number(Element.elm_time.value) || 0
+
+    if(duration > 0 && duration > currentTime){
+      // 再生時間が Time を超えた場合のみ拡張
+      const sec = Math.ceil(duration * 10) / 10
+      Element.elm_time.value = sec
+      const msec = get_msec()
+      const sec_step = 10
+      const newWidth = sec * sec_step * msec
+      set_width(newWidth)
+      new Timeline().init()
+    }
   }
 
   /**
    * LayerModel変更コールバック
    * アクティブレイヤーが切り替わった場合、またはレイヤー追加/削除時にエディタを更新
+   * レイヤー切替時はモデルデータ（notesData）を保存・復元して位置を維持する
    */
   _onLayerChange(){
     const currentActiveId = LayerModel.activeLayerId
     if(currentActiveId !== _lastActiveLayerId){
-      // 切り替え前のレイヤーに textarea の現在値を保存
+      // 切り替え前のレイヤーにモデルデータと textarea の現在値を保存
       const prevLayer = LayerModel.layers.find(l => l.id === _lastActiveLayerId)
-      if(prevLayer && Element.elm_midi_string){
-        prevLayer.midiString = Element.elm_midi_string.value
+      if(prevLayer){
+        prevLayer.notesData = MidiModel.saveSnapshot()
+        if(Element.elm_midi_string){
+          prevLayer.midiString = Element.elm_midi_string.value
+        }
       }
       _lastActiveLayerId = currentActiveId
-      // 新しいアクティブレイヤーの midiString を textarea に反映
+
+      // 新しいアクティブレイヤーのデータを復元
       const activeLayer = LayerModel.activeLayer
-      if(activeLayer && Element.elm_midi_string){
-        Element.elm_midi_string.value = activeLayer.midiString
+      if(activeLayer){
+        if(activeLayer.notesData){
+          // スナップショットがあればモデルを復元
+          MidiModel.restoreSnapshot(activeLayer.notesData)
+        } else if(activeLayer.midiString){
+          // スナップショットがなければ midiString からモデルを構築
+          MidiModel.fromString(activeLayer.midiString)
+        } else {
+          MidiModel.restoreSnapshot(null)
+        }
+        if(Element.elm_midi_string){
+          Element.elm_midi_string.value = activeLayer.midiString || ''
+        }
       }
     }
     note_clear()
@@ -94,7 +135,7 @@ export class StringInput{
     for(const note of notes){
       if(note.type !== 'note'){continue}
       if(note.octave === null || note.key === null){continue}
-      put_note(note.octave, note.key, note.left)
+      put_note(note.octave, note.key, note.left, note.width)
       const allNotes = Element.elm_editor.querySelectorAll('.note')
       const lastNote = allNotes[allNotes.length - 1]
       if(lastNote){
@@ -113,6 +154,7 @@ export class StringInput{
   /**
    * 全レイヤーのノートをエディタに描画する
    * アクティブレイヤーは不透明、それ以外は半透明で表示
+   * アクティブレイヤーは MidiModel のデータ（left 保持）から描画する
    */
   renderAllLayers(){
     const layers = LayerModel.layers
@@ -125,30 +167,52 @@ export class StringInput{
       StringInput._renderLayerNotes(layer, false)
     }
 
-    // アクティブレイヤーを最後に描画（前面）
+    // アクティブレイヤーを最後に描画（前面）— MidiModel から描画
     const activeLayer = LayerModel.activeLayer
-    if(activeLayer && activeLayer.midiString && activeLayer.visible){
-      StringInput._renderLayerNotes(activeLayer, true)
+    if(activeLayer && activeLayer.visible){
+      const notes = MidiModel.notes
+      if(notes && notes.length){
+        StringInput._renderFromModelNotes(notes, activeLayer)
+      } else if(activeLayer.midiString){
+        // モデルが空なら midiString からフォールバック描画
+        StringInput._renderLayerNotes(activeLayer, true)
+      }
     }
   }
 
   /**
-   * 1レイヤーのノートを描画する
+   * MidiModel の notes 配列からエディタに描画する（left を保持）
+   */
+  static _renderFromModelNotes(notes, layer){
+    for(const note of notes){
+      if(note.type !== 'note'){continue}
+      if(note.octave === null || note.key === null){continue}
+      put_note(note.octave, note.key, note.left, note.width)
+
+      const allNotes = Element.elm_editor.querySelectorAll('.note')
+      const lastNote = allNotes[allNotes.length - 1]
+      if(!lastNote){continue}
+
+      lastNote.setAttribute('data-model-id', note.id)
+      lastNote.setAttribute('data-layer-id', layer.id)
+      lastNote.style.setProperty('--layer-color', layer.color)
+      lastNote.classList.add('layer-active')
+    }
+  }
+
+  /**
+   * 1レイヤーのノートを描画する（Time 基準）
    */
   static _renderLayerNotes(layer, isActive){
     const datas = MidiParser.get_code(layer.midiString)
     if(!datas || !datas.length){return}
 
-    const totalDuration = datas[datas.length - 1].time
-    const timelineWidth = get_width()
-
     for(const data of datas){
       if(!data.S || data.S === 'S' || data.S === '~'){continue}
 
       const startTime = data.time - data.tempo
-      const left = totalDuration > 0
-        ? (startTime / totalDuration) * timelineWidth
-        : 0
+      const left = sec2px(startTime)
+      const width = sec2px(data.tempo)
 
       // 和音の処理
       if(data.S && data.S.match && data.S.match(/\[(.+)\]/)){
@@ -160,7 +224,7 @@ export class StringInput{
             for(const cn of chordNotes){
               const octave = Number(cn.O || 5)
               const key = (cn.S || '').toLowerCase()
-              StringInput._putLayerNote(octave, key, left, layer, isActive)
+              StringInput._putLayerNote(octave, key, left, width, layer, isActive)
             }
           }
         }
@@ -169,7 +233,7 @@ export class StringInput{
         if(!data.O && data.O !== 0){continue}
         const octave = Number(data.O)
         const key = data.S.toLowerCase()
-        StringInput._putLayerNote(octave, key, left, layer, isActive)
+        StringInput._putLayerNote(octave, key, left, width, layer, isActive)
       }
     }
   }
@@ -177,8 +241,8 @@ export class StringInput{
   /**
    * レイヤー属性付きのノートをエディタに配置する
    */
-  static _putLayerNote(octave, key, left, layer, isActive){
-    put_note(octave, key, left)
+  static _putLayerNote(octave, key, left, width, layer, isActive){
+    put_note(octave, key, left, width)
 
     // 最後に追加されたノートにレイヤー属性を付与
     const allNotes = Element.elm_editor.querySelectorAll('.note')

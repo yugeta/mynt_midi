@@ -26,18 +26,18 @@ export function get_key_type(key){
   return key.match(/\-/) ? 'flat' : 'key'
 }
 
-export function put_note(octave, key, left){
+export function put_note(octave, key, left, noteWidth){
   octave = Number(octave)
   key = key.toLowerCase()
   const top = get_note_pos_y(octave, key)
   if(top === null){return}
-  const width = Element.default_note_width
+  const width = noteWidth || Element.default_note_width
   const note = document.createElement('div')
   const type = get_key_type(key)
   note.classList.add('note')
   note.style.setProperty('left'   , `${left}px`,'')
   note.style.setProperty('top'    , `${top}px`,'')
-  note.style.setProperty('width'  , `${width}px`,'')
+  note.style.setProperty('width'  , `${Math.max(4, width)}px`,'')
   note.setAttribute('data-type'   , type)
   note.setAttribute('data-octave' , octave)
   note.setAttribute('data-key'    , key)

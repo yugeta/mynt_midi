@@ -1,5 +1,5 @@
 import { MidiParser } from './parser.js'
-import { get_width } from '../util/time.js'
+import { get_width, sec2px, px2sec } from '../util/time.js'
 
 /**
  * MIDIデータモデル
@@ -40,17 +40,12 @@ export class MidiModel{
     const datas = MidiParser.get_code(str)
     if(!datas || !datas.length){return}
 
-    const totalDuration = datas[datas.length - 1].time
-    const timelineWidth = get_width()
-
     for(const data of datas){
       const startTime = data.time - data.tempo
-      const left = totalDuration > 0
-        ? (startTime / totalDuration) * timelineWidth
-        : 0
+      const left = sec2px(startTime)
+      const width = sec2px(data.tempo)
 
       if(data.S && data.S.match && data.S.match(/\[(.+)\]/)){
-        // 和音: 内部をパースして個別の音符としてモデルに追加
         const reg = /\[(.+?)\]/i
         const res = reg.exec(data.S)
         if(res){
@@ -68,6 +63,7 @@ export class MidiModel{
                 time     : data.time,
                 startTime: startTime,
                 left     : left,
+                width    : width,
                 chordId  : chordId,
                 type     : 'note',
               })
@@ -86,6 +82,7 @@ export class MidiModel{
           time     : data.time,
           startTime: startTime,
           left     : left,
+          width    : width,
           chordId  : null,
           type     : 'rest',
         })
@@ -101,6 +98,7 @@ export class MidiModel{
           time     : data.time,
           startTime: startTime,
           left     : left,
+          width    : width,
           chordId  : null,
           type     : 'fade',
         })
@@ -116,6 +114,7 @@ export class MidiModel{
           time     : data.time,
           startTime: startTime,
           left     : left,
+          width    : width,
           chordId  : null,
           type     : 'note',
         })
@@ -231,21 +230,24 @@ export class MidiModel{
 
   static addNote(octave, key, left, tempoVal){
     tempoVal = tempoVal || MidiModel.getDefaultTempo()
+    const tempo = 60 / tempoVal
+    const width = sec2px(tempo)
+    const startTime = px2sec(left)
     const note = {
       id       : `note_${_nextId++}`,
       octave   : Number(octave),
       key      : key.toLowerCase(),
-      tempo    : 60 / tempoVal,
+      tempo    : tempo,
       tempoVal : tempoVal,
       volume   : 50,
-      time     : 0,
-      startTime: 0,
+      time     : startTime + tempo,
+      startTime: startTime,
       left     : left,
+      width    : width,
       chordId  : null,
       type     : 'note',
     }
     _notes.push(note)
-    MidiModel.recalcTimes()
     return note
   }
 
@@ -257,17 +259,44 @@ export class MidiModel{
     return 120
   }
 
-  // left の順序に基づいて time を再計算
+  // left の順序に基づいて time を再計算（Time 基準）
   static recalcTimes(){
-    const sorted = [..._notes].sort((a, b) => a.left - b.left)
-    const totalDuration = MidiModel.duration || 1
-    const timelineWidth = get_width()
-
-    // left → 相対位置 → time
-    for(const note of sorted){
-      const ratio = timelineWidth > 0 ? note.left / timelineWidth : 0
-      note.startTime = ratio * totalDuration
+    for(const note of _notes){
+      note.startTime = px2sec(note.left)
       note.time = note.startTime + note.tempo
     }
+  }
+
+  // --- モデルデータの保存・復元（レイヤー切替用） ---
+
+  /**
+   * 現在のモデルデータのスナップショットを返す
+   * @returns {Array} notes 配列のディープコピー
+   */
+  static saveSnapshot(){
+    return _notes.map(n => ({ ...n }))
+  }
+
+  /**
+   * スナップショットからモデルを復元する
+   * @param {Array} snapshot - saveSnapshot() の戻り値
+   */
+  static restoreSnapshot(snapshot){
+    if(!snapshot || !Array.isArray(snapshot)){
+      _notes = []
+      _nextId = 0
+      return
+    }
+    _notes = snapshot.map(n => ({ ...n }))
+    // _nextId を復元データの最大値+1に設定
+    let maxId = 0
+    for(const n of _notes){
+      const match = n.id && n.id.match(/note_(\d+)/)
+      if(match){
+        const num = parseInt(match[1])
+        if(num >= maxId){ maxId = num + 1 }
+      }
+    }
+    _nextId = maxId
   }
 }
