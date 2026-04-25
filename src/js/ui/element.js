@@ -1,3 +1,5 @@
+import { LayerModel } from '../midi/layer-model.js'
+
 /**
  * DOM要素アクセサ
  */
@@ -28,6 +30,10 @@ export class Element{
     return 11
   }
   static get oscillator_type(){
+    const active = LayerModel.activeLayer
+    if(active){
+      return active.oscillatorType
+    }
     return document.querySelector(`[name='oscillator_type']`).value
   }
   static get elm_time(){

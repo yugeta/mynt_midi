@@ -5,6 +5,7 @@
 @import 'header.css';
 @import 'control.css';
 @import 'string.css';
+@import 'layer.css';
 @import 'timebar.css';
 
 :root{

@@ -7,6 +7,9 @@ import { ScrollSync }  from './controller/scroll-sync.js'
 import { StringInput } from './controller/string-input.js'
 import { JsonIO }      from './controller/json-io.js'
 import { SvgImport }   from './core/svg-import.js'
+import { LayerModel }  from './midi/layer-model.js'
+import { LayerPanel }  from './ui/layer-panel.js'
+import { Element }     from './ui/element.js'
 
 class Main{
   constructor(){
@@ -20,6 +23,15 @@ class Main{
     await new Timebar().init()
     await new ScrollSync().init()
     await new Controls().init()
+
+    // LayerModel初期化: 既存のtextareaとオシレータタイプから初期レイヤーを生成
+    const midiString = Element.elm_midi_string ? Element.elm_midi_string.value : ''
+    const oscType = document.querySelector(`[name='oscillator_type']`)
+      ? document.querySelector(`[name='oscillator_type']`).value
+      : 'square'
+    LayerModel.init(midiString, oscType)
+
+    await new LayerPanel().init()
     await new StringInput().init()
     await new JsonIO().init()
     await new SvgImport().init()
