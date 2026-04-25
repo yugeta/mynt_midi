@@ -31,6 +31,7 @@ export class JsonIO {
         </div>
         <textarea class="json-modal-textarea" spellcheck="false"></textarea>
         <div class="json-modal-actions">
+          <button class="json-modal-btn json-modal-format">Format</button>
           <button class="json-modal-btn json-modal-execute"></button>
           <button class="json-modal-btn json-modal-cancel">Cancel</button>
         </div>
@@ -68,12 +69,42 @@ export class JsonIO {
     }
   }
 
+  // --- バリデーション ---
+  validate(jsonStr) {
+    if (!jsonStr) {
+      return { ok: false, error: 'JSONを入力してください' }
+    }
+    let parsed
+    try {
+      parsed = JSON.parse(jsonStr)
+    } catch (e) {
+      return { ok: false, error: `JSON構文エラー: ${e.message}` }
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, error: 'トップレベルはオブジェクトである必要があります' }
+    }
+    if (!Array.isArray(parsed.notes)) {
+      return { ok: false, error: '"notes" 配列が必要です' }
+    }
+    for (let i = 0; i < parsed.notes.length; i++) {
+      const note = parsed.notes[i]
+      if (!note.pitch) {
+        return { ok: false, error: `notes[${i}]: "pitch" が必要です` }
+      }
+      if (!note.duration) {
+        return { ok: false, error: `notes[${i}]: "duration" が必要です` }
+      }
+    }
+    return { ok: true, parsed }
+  }
+
   // --- Import ---
   openImport() {
     const overlay = document.querySelector('.json-modal-overlay')
     const title = document.querySelector('.json-modal-title')
     const textarea = document.querySelector('.json-modal-textarea')
     const execBtn = document.querySelector('.json-modal-execute')
+    const formatBtn = document.querySelector('.json-modal-format')
     const errorEl = document.querySelector('.json-modal-error')
 
     title.textContent = 'JSON Import'
@@ -81,13 +112,64 @@ export class JsonIO {
     textarea.placeholder = '{\n  "bpm": 120,\n  "notes": [\n    { "pitch": "C4", "duration": "4n" }\n  ]\n}'
     textarea.readOnly = false
     execBtn.textContent = 'Import'
+    formatBtn.style.display = ''
     errorEl.textContent = ''
+    errorEl.className = 'json-modal-error'
     overlay.classList.add('active')
+
+    // textarea入力時のリアルタイムバリデーション
+    this._removeInputListener()
+    this._inputListener = () => {
+      const val = textarea.value.trim()
+      if (!val) {
+        errorEl.textContent = ''
+        errorEl.className = 'json-modal-error'
+        return
+      }
+      const result = this.validate(val)
+      if (result.ok) {
+        errorEl.textContent = '✓ 有効なJSON'
+        errorEl.className = 'json-modal-error valid'
+      } else {
+        errorEl.textContent = result.error
+        errorEl.className = 'json-modal-error'
+      }
+    }
+    textarea.addEventListener('input', this._inputListener)
 
     // 実行ボタンのイベントを差し替え
     const newBtn = execBtn.cloneNode(true)
     execBtn.parentNode.replaceChild(newBtn, execBtn)
     newBtn.addEventListener('click', () => this.executeImport())
+
+    // 整形ボタンのイベントを差し替え
+    const newFmt = formatBtn.cloneNode(true)
+    formatBtn.parentNode.replaceChild(newFmt, formatBtn)
+    newFmt.addEventListener('click', () => this.executeFormat())
+  }
+
+  _removeInputListener() {
+    if (this._inputListener) {
+      const textarea = document.querySelector('.json-modal-textarea')
+      if (textarea) { textarea.removeEventListener('input', this._inputListener) }
+      this._inputListener = null
+    }
+  }
+
+  executeFormat() {
+    const textarea = document.querySelector('.json-modal-textarea')
+    const errorEl = document.querySelector('.json-modal-error')
+    const val = textarea.value.trim()
+    if (!val) { return }
+    try {
+      const parsed = JSON.parse(val)
+      textarea.value = JSON.stringify(parsed, null, 2)
+      errorEl.textContent = '✓ 整形しました'
+      errorEl.className = 'json-modal-error valid'
+    } catch (e) {
+      errorEl.textContent = `JSON構文エラー: ${e.message}`
+      errorEl.className = 'json-modal-error'
+    }
   }
 
   executeImport() {
@@ -95,21 +177,16 @@ export class JsonIO {
     const errorEl = document.querySelector('.json-modal-error')
     const jsonStr = textarea.value.trim()
 
-    if (!jsonStr) {
-      errorEl.textContent = 'JSONを入力してください'
+    const result = this.validate(jsonStr)
+    if (!result.ok) {
+      errorEl.textContent = result.error
+      errorEl.className = 'json-modal-error'
       return
     }
 
     try {
-      // JSON バリデーション
-      const parsed = JSON.parse(jsonStr)
-      if (!parsed.notes || !Array.isArray(parsed.notes)) {
-        errorEl.textContent = '"notes" 配列が必要です'
-        return
-      }
-
       // MIDI文字列に変換
-      const midiStr = JsonConverter.toMidiString(parsed)
+      const midiStr = JsonConverter.toMidiString(result.parsed)
 
       // textareaに反映 → 既存フローに合流
       Element.elm_midi_string.value = midiStr
@@ -118,10 +195,12 @@ export class JsonIO {
       StringInput.renderFromModel()
       scroll_middle()
 
+      this._removeInputListener()
       this.closeModal()
     }
     catch (e) {
       errorEl.textContent = `エラー: ${e.message}`
+      errorEl.className = 'json-modal-error'
     }
   }
 
@@ -131,6 +210,7 @@ export class JsonIO {
     const title = document.querySelector('.json-modal-title')
     const textarea = document.querySelector('.json-modal-textarea')
     const execBtn = document.querySelector('.json-modal-execute')
+    const formatBtn = document.querySelector('.json-modal-format')
     const errorEl = document.querySelector('.json-modal-error')
 
     const midiStr = Element.elm_midi_string.value
@@ -141,7 +221,9 @@ export class JsonIO {
     textarea.placeholder = ''
     textarea.readOnly = true
     execBtn.textContent = 'Copy'
+    formatBtn.style.display = 'none'
     errorEl.textContent = ''
+    errorEl.className = 'json-modal-error'
     overlay.classList.add('active')
 
     // コピーボタン
@@ -174,6 +256,7 @@ export class JsonIO {
 
   // --- モーダル閉じる ---
   closeModal() {
+    this._removeInputListener()
     const overlay = document.querySelector('.json-modal-overlay')
     if (overlay) { overlay.classList.remove('active') }
   }

@@ -118,3 +118,14 @@ textarea[name='midi-string']{
   color:#d32f2f;
   min-height:20px;
 }
+.json-modal-error.valid{
+  color:#2e7d32;
+}
+.json-modal-format{
+  background:#1a6fb5;
+  color:#fff;
+  margin-right:auto;
+}
+.json-modal-format:hover{
+  opacity:0.7;
+}
