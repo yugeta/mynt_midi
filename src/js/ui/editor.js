@@ -3,6 +3,7 @@ import { Css }      from '../core/css.js'
 import { get_pos_x, get_pos_y } from '../util/position.js'
 import { get_msec, get_msec_step } from '../util/time.js'
 import { MidiSerializer } from '../midi/serializer.js'
+import { MidiModel } from '../midi/model.js'
 
 export class Editor{
   constructor(){}
@@ -69,7 +70,9 @@ export class Editor{
       y : get_pos_y(key_elm.offsetTop + octave_rect.offsetTop),
     }
     const left = this.note_pos_adjust(pos.x)
-    this.put_note_editor(pos.y , left , key_type , octave , key)
+    // モデルに音符を追加
+    const modelNote = MidiModel.addNote(octave, key, left)
+    this.put_note_editor(pos.y , left , key_type , octave , key, modelNote.id)
     // エディタの音符状態を textarea に同期
     MidiSerializer.syncToTextarea()
   }
@@ -90,7 +93,7 @@ export class Editor{
     return elm_octave ? elm_octave.getAttribute('data-octave') : null
   }
 
-  put_note_editor(top, left, type, octave, key){
+  put_note_editor(top, left, type, octave, key, modelId){
     const width = Element.default_note_width
     const note = document.createElement('div')
     note.classList.add('note')
@@ -101,6 +104,9 @@ export class Editor{
     note.setAttribute('data-octave' , octave)
     note.setAttribute('data-key'    , key)
     note.setAttribute('data-status' , 'active')
+    if(modelId){
+      note.setAttribute('data-model-id', modelId)
+    }
     Element.elm_editor.appendChild(note)
   }
 

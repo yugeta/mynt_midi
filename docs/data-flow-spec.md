@@ -293,3 +293,111 @@ DOM を中間データとして使わず、メモリ上にデータモデルを�
 | 音符サイズ変更 | 未実装 |
 | ファイル出力/入力 | 未実装 |
 | 全体テンポ切り替え | 未実装 |
+
+
+# 実装済み: データモデルの導入
+
+## 修正内容（2025-04-25）
+
+DOM からテンポを逆算する不安定な方式を廃止し、
+メモリ上のデータモデル（MidiModel）を信頼できる唯一のデータソースとして導入した。
+
+### 新規ファイル
+
+`src/js/midi/model.js` — MidiModel クラス
+
+### 修正ファイル
+
+| ファイル | 変更内容 |
+|---|---|
+| `midi/serializer.js` | DOM→テンポ逆算を廃止。モデル経由で文字列生成に変更 |
+| `controller/string-input.js` | MidiModel.fromString() でモデル構築後に DOM 描画 |
+| `ui/editor.js` | 音符配置時に MidiModel.addNote() でモデルにも追加 |
+
+
+## 新しいデータフロー
+
+```
+[A] MIDI文字列 (textarea)
+     │                    ↑
+     │ fromString()       │ toString()
+     ▼                    │
+[M] MidiModel ─────────────┘
+     │  ↑
+     │  │ syncDomToModel()（DOM位置→モデル反映）
+     │  │
+     │  renderFromModel()（モデル→DOM描画）
+     ▼  │
+[C] DOM .note 要素 (data-model-id でモデルと紐付け)
+```
+
+### 変換の方向と状態（更新後）
+
+| 変換 | 方向 | モジュール | 状態 |
+|---|---|---|---|
+| A → M | デコード | MidiModel.fromString() | ✅ 安定 |
+| M → A | エンコード | MidiModel.toString() | ✅ 安定（テンポ値を保持） |
+| M → C | 描画 | StringInput.renderFromModel() | ✅ 安定 |
+| C → M | 位置同期 | MidiSerializer.syncDomToModel() | ✅ 安定（left のみ同期） |
+| A → M → C → M → A | ラウンドトリップ | 上記の組み合わせ | ✅ 安定 |
+
+
+## MidiModel のデータ構造
+
+```js
+{
+  id        : "note_0",     // 一意のID（DOM の data-model-id と対応）
+  octave    : 5,            // オクターブ（0〜10）
+  key       : "c",          // 音名（小文字）
+  tempo     : 0.015,        // 音の長さ（秒）= 60 / tempoVal
+  tempoVal  : 4000,         // テンポ値（T値そのもの、整数）
+  volume    : 50,           // 音量
+  time      : 0.015,        // 累積再生時間（秒、この音符の終了時点）
+  startTime : 0,            // この音符の開始時点（秒）
+  left      : 100,          // エディタ上のX位置（px）
+  chordId   : "chord_0",   // 和音グループID（同時に鳴る音符は同じID）
+  type      : "note",       // "note" / "rest" / "fade"
+}
+```
+
+### type の種類
+
+| type | 説明 | octave/key |
+|---|---|---|
+| `note` | 音符（音が鳴る） | 値あり |
+| `rest` | 休符（無音） | null |
+| `fade` | フェードアウト | null |
+
+### DOM との紐付け
+
+- DOM の `.note` 要素に `data-model-id` 属性を付与
+- `data-model-id` の値はモデルの `id` と一致
+- 音符移動時: DOM の `offsetLeft` → `syncDomToModel()` → モデルの `left` を更新
+- 文字列同期時: モデルの `toString()` → textarea に書き込み
+
+
+## MidiModel.toString() のエンコード仕様
+
+モデルの音符配列を `left` でソートし、以下のルールで MIDI 文字列を生成:
+
+1. テンポ変更: 前の音符と `tempoVal` が異なる場合のみ `T{値}` を出力
+2. 音量変更: 前の音符と `volume` が異なり、かつデフォルト(50)でない場合のみ `V{値}` を出力
+3. オクターブ変更: 前の音符と `octave` が異なる場合のみ `O{値}` を出力
+4. 単音: `{音名}` を出力（例: `C`, `F+`, `B-`）
+5. 和音: 同じ `left` 位置の音符を `[O{oct}{key}O{oct}{key}...]` で出力
+6. 休符: `S` を出力
+7. フェードアウト: `~` を出力
+
+### エンコード例
+
+モデル:
+```
+[T4000, O5F] [T4000, O6F] [T4000, O7F]  ← 同じ left（和音）
+[T4000, O2C] [T4000, O3C] [T4000, O4C]  ← 同じ left（和音）
+[T300, rest]                              ← 休符
+```
+
+出力:
+```
+T4000[O5FO6FO7F][O2CO3CO4C]T300S
+```

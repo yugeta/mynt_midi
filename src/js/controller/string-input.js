@@ -1,4 +1,5 @@
 import { MidiParser } from '../midi/parser.js'
+import { MidiModel }  from '../midi/model.js'
 import { Element }   from '../ui/element.js'
 import { put_note, note_clear, scroll_middle } from '../util/position.js'
 import { get_width } from '../util/time.js'
@@ -6,9 +7,9 @@ import { get_width } from '../util/time.js'
 /**
  * MIDI文字列入力 → エディタ音符変換
  *
- * 音符の配置は実再生時間ベースでタイムライン幅にスケーリングする。
- * 各音符の data.time（累積再生時間）を使い、
- * left = (data.time / totalDuration) * timelineWidth で計算。
+ * データモデル（MidiModel）を経由して変換する。
+ * 1. textarea → MidiModel.fromString() → モデル
+ * 2. モデル → render() → DOM
  */
 
 export class StringInput{
@@ -42,32 +43,31 @@ export class StringInput{
   string2editor(){
     const string = Element.elm_midi_string.value
     if(!string){return}
-    const midi_datas = MidiParser.get_code(string)
-    if(!midi_datas || !midi_datas.length){return}
 
-    const totalDuration = midi_datas[midi_datas.length - 1].time
-    if(totalDuration <= 0){return}
+    // モデルを構築
+    MidiModel.fromString(string)
 
-    const timelineWidth = get_width()
+    // モデルからDOMを描画
+    StringInput.renderFromModel()
+  }
 
-    for(const midi_data of midi_datas){
-      // data.time は累積時間（この音符の終了時点）
-      // 開始時点 = data.time - data.tempo
-      const startTime = midi_data.time - midi_data.tempo
-      const left = (startTime / totalDuration) * timelineWidth
+  /**
+   * モデルの音符をエディタに描画する
+   */
+  static renderFromModel(){
+    const notes = MidiModel.notes
+    for(const note of notes){
+      if(note.type !== 'note'){continue}
+      if(note.octave === null || note.key === null){continue}
 
-      // 和音
-      if(midi_data.S.match(/\[(.*)\]/)){
-        const reg = RegExp(`\\[(.+?)\\]` , 'i')
-        const res = reg.exec(midi_data.S)
-        const arr = MidiParser.get_code(res[1])
-        for(const midi_data2 of arr){
-          put_note(midi_data2.O, midi_data2.S, left)
-        }
-      }
-      // 単音
-      else{
-        put_note(midi_data.O, midi_data.S, left)
+      // put_note で DOM 要素を作成
+      put_note(note.octave, note.key, note.left)
+
+      // 最後に追加された .note 要素に data-model-id を付与
+      const allNotes = Element.elm_editor.querySelectorAll('.note')
+      const lastNote = allNotes[allNotes.length - 1]
+      if(lastNote){
+        lastNote.setAttribute('data-model-id', note.id)
       }
     }
   }
