@@ -96,8 +96,20 @@
   border-right-width:0;
 }
 .controls [name='play'] .play{
+  border-left-width:0;
+}
+.controls [name='play'] .loop{
+  background-color:black;
+  border:0.5px solid #aaa;
+  padding:5px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   border-radius: 0 calc(var(--control-height) / 2) calc(var(--control-height) / 2) 0;
   border-left-width:0;
+}
+.controls [name='play'] .loop[data-loop='on'] svg{
+  fill:#4ea8ff;
 }
 
 /* .controls [name='play'] input[name='mmdd']::after{

@@ -28,6 +28,7 @@ export class Controls{
   set_event(){
     Element.elm_time.addEventListener('change' , this.change_time.bind(this))
     Element.elm_play.addEventListener('click'  , this.click_play.bind(this))
+    Element.elm_loop.addEventListener('click'  , this.click_loop.bind(this))
   }
 
   // タイムライン全体の時間（ミリ秒）
@@ -40,6 +41,15 @@ export class Controls{
   }
   set play_status(status){
     Element.elm_play.setAttribute('data-status' , status)
+  }
+
+  get loop_enabled(){
+    return Element.elm_loop.getAttribute('data-loop') === 'on'
+  }
+
+  click_loop(){
+    const current = Element.elm_loop.getAttribute('data-loop')
+    Element.elm_loop.setAttribute('data-loop', current === 'on' ? '' : 'on')
   }
 
   // MIDI文字列の実再生時間からTime入力欄を設定
@@ -67,6 +77,10 @@ export class Controls{
         // 停止
         this.play_status = ''
         Controls._startMs = null
+        // 再生中の音声を停止
+        if(MidiPlayer._audioContext && MidiPlayer._audioContext.state !== 'closed'){
+          MidiPlayer._audioContext.close()
+        }
         break
       default: {
         this.play_status = 'play'
@@ -109,6 +123,19 @@ export class Controls{
     // 終了判定
     if(elapsed >= total){
       this._timebar.set_bar_pos(width)
+
+      // ループモード: 先頭に戻って再生を繰り返す
+      if(this.loop_enabled){
+        this._timebar.set_bar_pos(0)
+        const midi_string = Element.elm_midi_string.value
+        if(midi_string){
+          MidiPlayer.play(midi_string)
+        }
+        Controls._startMs = Date.now()
+        window.requestAnimationFrame(this.play_control.bind(this))
+        return
+      }
+
       this.play_status = ''
       Controls._startMs = null
       return

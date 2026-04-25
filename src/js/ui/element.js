@@ -64,4 +64,7 @@ export class Element{
   static get elm_play(){
     return document.querySelector(`[name='play'] .play`)
   }
+  static get elm_loop(){
+    return document.querySelector(`[name='play'] .loop`)
+  }
 }
