@@ -5,9 +5,14 @@ import { get_msec, get_msec_step, get_fulltime, set_width, sec2px } from '../uti
 import { MidiSerializer } from '../midi/serializer.js'
 import { MidiModel } from '../midi/model.js'
 import { MidiParser } from '../midi/parser.js'
+import { MidiPlayer } from '../midi/player.js'
+import { LayerModel } from '../midi/layer-model.js'
 import { Timeline } from './timeline.js'
 
 export class Editor{
+  /** プレビュー再生中のノートハンドル */
+  static _previewNote = null
+
   constructor(){}
 
   async init(){
@@ -23,10 +28,9 @@ export class Editor{
   }
 
   set_event(){
-    Element.elm_editor.addEventListener('click'     , this.click_editor.bind(this))
-    Element.elm_editor.addEventListener('mousedown' , this.note_move_start.bind(this))
-    Element.elm_editor.addEventListener('mousemove' , this.note_move_move.bind(this))
-    Element.elm_editor.addEventListener('mouseup'   , this.note_move_end.bind(this))
+    Element.elm_editor.addEventListener('mousedown' , this.mousedown_editor.bind(this))
+    Element.elm_editor.addEventListener('mousemove' , this.mousemove_editor.bind(this))
+    Element.elm_editor.addEventListener('mouseup'   , this.mouseup_editor.bind(this))
     // ホバーイベント（旧event.jsから統合）
     Element.elm_editor.addEventListener('mouseover' , this.mouseover_key.bind(this))
     Element.elm_editor.addEventListener('mouseout'  , this.clear_editor_active.bind(this))
@@ -60,7 +64,52 @@ export class Editor{
     }
   }
 
-  click_editor(e){
+  /**
+   * mousedown 統合ハンドラ:
+   * - 既存ノート右端 → リサイズ開始
+   * - 既存ノート中央〜左 → ドラッグ移動開始 + プレビュー音
+   * - 空き領域 → ノート配置ドラッグ開始 + プレビュー音
+   */
+  mousedown_editor(e){
+    const RESIZE_ZONE = 6 // 右端からのリサイズ判定幅(px)
+
+    // 既存ノート上の操作
+    const note = e.target.closest('.note')
+    if(note){
+      if(note.classList.contains('layer-inactive')){return}
+
+      // リサイズ判定: ノート右端付近か？
+      const noteRect = note.getBoundingClientRect()
+      const isResizeZone = (e.clientX >= noteRect.right - RESIZE_ZONE)
+
+      if(isResizeZone){
+        // リサイズモード
+        this._drag = {
+          mode: 'resize',
+          elm: note,
+          startX: e.pageX,
+          origWidth: note.offsetWidth,
+        }
+        Element.elm_editor.classList.add('dragging')
+      } else {
+        // 移動モード
+        this._drag = {
+          mode: 'move',
+          elm: note,
+          mouseX: e.pageX,
+          mouseY: e.pageY,
+          left: note.offsetLeft,
+          top: note.offsetTop,
+        }
+        Element.elm_editor.classList.add('dragging')
+        const key = note.getAttribute('data-key')
+        const octave = note.getAttribute('data-octave')
+        Editor._startPreview(key, octave)
+      }
+      return
+    }
+
+    // 空き領域: ノート配置ドラッグ開始
     if(!e.target.closest('.octave [data-key]')){return}
     const octave   = this.get_octave(e.target)
     const key      = this.get_key(e.target)
@@ -72,12 +121,31 @@ export class Editor{
       y : get_pos_y(key_elm.offsetTop + octave_rect.offsetTop),
     }
     const left = this.note_pos_adjust(pos.x)
-    // モデルに音符を追加
+    const step = this._getSnapStep()
+
+    // 初期幅: マウスの実座標とスナップ後の左端の差分（最小1グリッド）
+    // get_pos_x は default_note_width/2 を引くので、生のエディタ内座標を別途計算
+    const editor_rect = Element.elm_editor.getBoundingClientRect()
+    const rawX = e.pageX - editor_rect.left + Element.elm_editor.scrollLeft
+    const initWidth = Math.max(step, Math.ceil((rawX - left) / step) * step)
+
     const modelNote = MidiModel.addNote(octave, key, left)
-    this.put_note_editor(pos.y , left , key_type , octave , key, modelNote.id, modelNote.width)
-    // エディタの音符状態を textarea に同期
-    MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
-    Editor._syncTimeDisplay()
+    this.put_note_editor(pos.y, left, key_type, octave, key, modelNote.id, initWidth)
+    // 仮配置のDOM要素を取得
+    const placedNote = Element.elm_editor.querySelector(`.note[data-model-id='${modelNote.id}']`)
+
+    this._drag = {
+      mode: 'place',
+      elm: placedNote,
+      anchorLeft: left,
+      startX: e.pageX,
+      initWidth: initWidth,
+      modelId: modelNote.id,
+    }
+    Element.elm_editor.classList.add('dragging')
+
+    // プレビュー音
+    Editor._playPreview(key, octave)
   }
 
   /**
@@ -133,31 +201,51 @@ export class Editor{
     Element.elm_editor.appendChild(note)
   }
 
-  note_move_start(e){
-    const note = e.target.closest('.note')
-    if(!note){return}
-    // アクティブレイヤーのノートのみ移動可能
-    if(note.classList.contains('layer-inactive')){return}
-    this.move_note = { elm: note, mouseX: e.pageX, mouseY: e.pageY, left: note.offsetLeft, top: note.offsetTop }
-  }
-  note_move_move(e){
-    if(!this.move_note){return}
-    // 横方向
-    let left = this.move_note.left - (this.move_note.mouseX - e.pageX)
-    left = this.note_pos_adjust(left)
-    if(left < 0){ left = 0 }
-    this.move_note.elm.style.setProperty('left' , `${left}px` , '')
+  mousemove_editor(e){
+    if(!this._drag){return}
 
-    // 縦方向: マウス位置から最も近いキー行にスナップ
-    const editor_rect = Element.elm_editor.getBoundingClientRect()
-    const mouseY_in_editor = e.pageY - editor_rect.top + Element.elm_editor.scrollTop
-    const key_row = this.find_key_row_at(mouseY_in_editor)
-    if(key_row){
-      const top = key_row.elm.offsetTop + key_row.octave.offsetTop
-      this.move_note.elm.style.setProperty('top', `${top}px`, '')
-      this.move_note.elm.setAttribute('data-type'  , key_row.elm.getAttribute('data-type'))
-      this.move_note.elm.setAttribute('data-key'   , key_row.elm.getAttribute('data-key'))
-      this.move_note.elm.setAttribute('data-octave', key_row.octave.getAttribute('data-octave'))
+    const step = this._getSnapStep()
+
+    if(this._drag.mode === 'place'){
+      // 配置ドラッグ: 右方向にノート幅を伸ばす
+      const dx = e.pageX - this._drag.startX
+      const rawWidth = this._drag.initWidth + Math.max(0, dx)
+      const snappedWidth = Math.max(step, Math.round(rawWidth / step) * step)
+      this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+    }
+    else if(this._drag.mode === 'resize'){
+      // リサイズ: 右端をドラッグ
+      const dx = e.pageX - this._drag.startX
+      const rawWidth = this._drag.origWidth + dx
+      const snappedWidth = Math.max(step, Math.round(rawWidth / step) * step)
+      this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+    }
+    else if(this._drag.mode === 'move'){
+      // 移動: 横方向
+      let left = this._drag.left - (this._drag.mouseX - e.pageX)
+      left = this.note_pos_adjust(left)
+      if(left < 0){ left = 0 }
+      this._drag.elm.style.setProperty('left', `${left}px`, '')
+
+      // 縦方向: マウス位置から最も近いキー行にスナップ
+      const editor_rect = Element.elm_editor.getBoundingClientRect()
+      const mouseY_in_editor = e.pageY - editor_rect.top + Element.elm_editor.scrollTop
+      const key_row = this.find_key_row_at(mouseY_in_editor)
+      if(key_row){
+        const top = key_row.elm.offsetTop + key_row.octave.offsetTop
+        this._drag.elm.style.setProperty('top', `${top}px`, '')
+        this._drag.elm.setAttribute('data-type'  , key_row.elm.getAttribute('data-type'))
+        this._drag.elm.setAttribute('data-key'   , key_row.elm.getAttribute('data-key'))
+        this._drag.elm.setAttribute('data-octave', key_row.octave.getAttribute('data-octave'))
+        // 行が変わったらプレビュー音を切り替える
+        const newKey = key_row.elm.getAttribute('data-key')
+        const newOctave = key_row.octave.getAttribute('data-octave')
+        if(newKey !== this._drag._prevKey || newOctave !== this._drag._prevOctave){
+          Editor._startPreview(newKey, newOctave)
+          this._drag._prevKey = newKey
+          this._drag._prevOctave = newOctave
+        }
+      }
     }
   }
 
@@ -184,9 +272,14 @@ export class Editor{
     }
     return null
   }
-  note_move_end(e){
-    if(!this.move_note){return}
-    delete this.move_note
+  mouseup_editor(e){
+    if(!this._drag){return}
+    const mode = this._drag.mode
+    this._drag = null
+    Element.elm_editor.classList.remove('dragging')
+    // プレビュー音を止める（移動モード用）
+    Editor._stopPreview()
+    // 全モード共通: モデルに同期
     MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
     Editor._syncTimeDisplay()
   }
@@ -194,6 +287,11 @@ export class Editor{
   note_pos_adjust(num){
     const step_size = get_msec() / get_msec_step()
     return Math.floor(num / step_size) * step_size
+  }
+
+  /** スナップのグリッド幅(px)を返す */
+  _getSnapStep(){
+    return get_msec() / get_msec_step()
   }
 
   click_note(e){
@@ -224,5 +322,36 @@ export class Editor{
     const height = Element.elm_editor.scrollHeight
     line.style.setProperty('height',`${height}px`,'')
     Element.elm_editor.appendChild(line)
+  }
+
+  // --- プレビュー音再生ヘルパー ---
+
+  /** クリック配置時: 短い音を鳴らす */
+  static _playPreview(key, octave){
+    const active = LayerModel.activeLayer
+    const oscType = active ? active.oscillatorType : 'square'
+    MidiPlayer.startNote(key, octave, { oscillatorType: oscType }).then(handle => {
+      if(!handle){ return }
+      // 150ms 後に自動停止
+      setTimeout(() => MidiPlayer.stopNote(handle), 150)
+    })
+  }
+
+  /** ドラッグ中: 持続音を開始（前の音は止める） */
+  static _startPreview(key, octave){
+    Editor._stopPreview()
+    const active = LayerModel.activeLayer
+    const oscType = active ? active.oscillatorType : 'square'
+    MidiPlayer.startNote(key, octave, { oscillatorType: oscType }).then(handle => {
+      Editor._previewNote = handle
+    })
+  }
+
+  /** ドラッグ終了: 持続音を停止 */
+  static _stopPreview(){
+    if(Editor._previewNote){
+      MidiPlayer.stopNote(Editor._previewNote)
+      Editor._previewNote = null
+    }
   }
 }

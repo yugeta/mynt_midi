@@ -161,7 +161,7 @@ export class LayerPanel {
     muteBtn.classList.add('layer-mute-btn')
     if (layer.mute) { muteBtn.classList.add('on') }
     muteBtn.textContent = 'M'
-    muteBtn.title = 'Mute'
+    muteBtn.title = 'Mute — このレイヤーをミュート（消音）'
     muteBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       LayerModel.updateLayer(layer.id, { mute: !layer.mute })
@@ -173,7 +173,7 @@ export class LayerPanel {
     soloBtn.classList.add('layer-solo-btn')
     if (layer.solo) { soloBtn.classList.add('on') }
     soloBtn.textContent = 'S'
-    soloBtn.title = 'Solo'
+    soloBtn.title = 'Solo — このレイヤーだけを再生'
     soloBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       LayerModel.updateLayer(layer.id, { solo: !layer.solo })
@@ -183,6 +183,7 @@ export class LayerPanel {
     // 音量スライダー + 数値表示
     const volWrap = document.createElement('div')
     volWrap.classList.add('layer-volume-wrap')
+    volWrap.title = 'Volume — レイヤーの音量'
 
     const volume = document.createElement('input')
     volume.classList.add('layer-volume')

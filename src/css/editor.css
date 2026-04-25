@@ -82,6 +82,9 @@
 .editor .note:hover{
   opacity:0.5;
 }
+.editor.dragging .note:hover{
+  opacity:1;
+}
 .editor .note[data-type='key']{
   transform:translate(0,50%);
 }
@@ -91,6 +94,21 @@
 .editor .note[data-status='active']::before{
   border:1px solid red;
   background-color:#D88;
+}
+
+/* リサイズハンドル（ノート右端） */
+.editor .note::after{
+  content:'';
+  position:absolute;
+  right:0;
+  top:0;
+  width:6px;
+  height:100%;
+  cursor:ew-resize;
+}
+.editor .note:hover::after{
+  background-color:rgba(0,0,0,0.15);
+  border-radius:0 4px 4px 0;
 }
 
 /* Layer color support */
