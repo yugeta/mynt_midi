@@ -7,6 +7,7 @@
   display:grid;
   grid-template-columns:var(--key-width) 1fr;
   background-color:white;
+  flex-shrink: 0;
 }
 .midi-frame[data-type='timebar']{
   height:30px;
@@ -14,6 +15,8 @@
   background-color:transparent;
 }
 .midi-frame[data-type='editor']{
-  height:var(--editor-height);
+  flex: 1;
+  flex-shrink: 1;
+  min-height: 0;
   overflow:hidden;
 }

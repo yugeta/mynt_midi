@@ -78,10 +78,7 @@ export class Editor{
   }
 
   fit_height(){
-    const footer_size = 30
-    const rect = Element.elm_editor.getBoundingClientRect()
-    const height = window.innerHeight - rect.top - footer_size
-    Css.set_css(':root', '--editor-height' , `${height}px`)
+    // CSS flex レイアウトで自動フィットするため、明示的な高さ設定は不要
   }
 
   get_key(elm){

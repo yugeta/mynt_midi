@@ -47,45 +47,49 @@
         <li data-action="docs">ドキュメント</li>
       </ul>
     </div>
+    <span class="menubar-title">MYNT MIDI</span>
   </nav>
-  <header>
-    <h1><img class='logo' src='favicon.png' />MYNT MIDI</h1>
-    <div class='controls'>
-      <div class='input-group' name='oscillator-type'>
-        <p class='title'>Oscillator type</p>
-        <select name='oscillator_type'>
-          <option name='sine'>sine</option>
-          <option name='square' selected>square</option>
-          <option name='sawtooth'>sawtooth</option>
-          <option name='triangle'>triangle</option>
-        </select>
+
+  <!-- レイヤー + MIDI文字列エリア（横並び） -->
+  <div class='workspace-area'>
+    <div class='midi-string-area'>
+      <div class='midi-string-header'>
+        <span class='midi-string-title'>Midi Code</span>
+        <div class='midi-string-toolbar'>
+          <button class='json-import-btn' title='JSON Import'>&#x2B07; Import</button>
+          <button class='json-export-btn' title='JSON Export'>&#x2B06; Export</button>
+        </div>
       </div>
-      <div class='input-group' name='time'>
-        <p class='title'>Time</p>
-        <input type='number' step='0.1' name='time'/>
-      </div>
-      <!-- <div class='input-group' name='tempo'>
-        <p class='title'>Tempo</p>
-        <input type='number' step='1' name='tempo'/>
-      </div> -->
-      <div name='play'>
-        <div class='start'><svg src='img/icon/start.svg'></svg></div>
-        <input type='text' name='mmdd' placeholder='00.000'/>
-        <!-- <svg class='stop' src='img/icon/stop.svg'></svg> -->
-        <div class='play'><svg src='img/icon/play.svg'></svg></div>
-        <div class='loop'><svg src='img/icon/loop.svg'></svg></div>
-      </div>
+      <textarea name='midi-string'>T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S</textarea>
     </div>
-  </header>
-  
-  <div class='midi-string-area'>
-    <div class='midi-string-toolbar'>
-      <button class='json-import-btn' title='JSON Import'>&#x2B07; JSON Import</button>
-      <button class='json-export-btn' title='JSON Export'>&#x2B06; JSON Export</button>
-    </div>
-    <!-- <textarea name='midi-string'>T450O7EGO8ECDG</textarea> -->
-    <textarea name='midi-string'>T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S</textarea>
   </div>
+
+  <!-- トランスポートバー（Time + 再生コントロール） -->
+  <div class='transport-bar no-select'>
+    <div class='transport-left'>
+      <div class='input-group' name='time'>
+        <span class='input-label'>Time</span>
+        <input type='number' step='0.1' name='time'/>
+        <span class='input-unit'>sec</span>
+      </div>
+    </div>
+    <div class='transport-center' name='play'>
+      <div class='start'><svg src='img/icon/start.svg'></svg></div>
+      <input type='text' name='mmdd' placeholder='00.000'/>
+      <div class='play'><svg src='img/icon/play.svg'></svg></div>
+      <div class='loop'><svg src='img/icon/loop.svg'></svg></div>
+    </div>
+    <div class='transport-right'>
+    </div>
+  </div>
+
+  <!-- 非表示: レイヤーパネルのオシレータ用（後方互換） -->
+  <select name='oscillator_type' style='display:none'>
+    <option name='sine'>sine</option>
+    <option name='square' selected>square</option>
+    <option name='sawtooth'>sawtooth</option>
+    <option name='triangle'>triangle</option>
+  </select>
 
   <div class='midi-frame no-select' data-type='timeline'>
     <div class='keyboard-head'></div>

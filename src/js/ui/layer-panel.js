@@ -66,10 +66,10 @@ export class LayerPanel {
   }
 
   _insertPanel() {
-    // ヘッダーと midi-string-area の間に挿入
-    const midiStringArea = document.querySelector('.midi-string-area')
-    if (midiStringArea && midiStringArea.parentNode) {
-      midiStringArea.parentNode.insertBefore(this._panel, midiStringArea)
+    // workspace-area の先頭に挿入（midi-string-area の左隣）
+    const workspace = document.querySelector('.workspace-area')
+    if (workspace) {
+      workspace.insertBefore(this._panel, workspace.firstChild)
     }
   }
 

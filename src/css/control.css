@@ -1,117 +1,136 @@
+/* Transport Bar */
+.transport-bar{
+  display: flex;
+  align-items: center;
+  height: 36px;
+  background: #2a2a2a;
+  border-bottom: 1px solid #444;
+  padding: 0 12px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.transport-left,
+.transport-right{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.transport-left{
+  min-width: 160px;
+}
+.transport-right{
+  margin-left: auto;
+}
+
+/* Time input group */
+.transport-bar .input-group{
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 26px;
+}
+.transport-bar .input-label{
+  background: #444;
+  color: #ccc;
+  font-size: 11px;
+  padding: 0 8px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-radius: 4px 0 0 4px;
+  white-space: nowrap;
+}
+.transport-bar .input-group input[name='time']{
+  width: 60px;
+  height: 100%;
+  border: 1px solid #555;
+  border-left: 0;
+  background: #1a1a1a;
+  color: #eee;
+  text-align: center;
+  font-size: 12px;
+  padding: 0 4px;
+}
+.transport-bar .input-unit{
+  background: #444;
+  color: #999;
+  font-size: 10px;
+  padding: 0 6px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-radius: 0 4px 4px 0;
+  border: 1px solid #555;
+  border-left: 0;
+}
+
+/* Play controls (center) */
+.transport-center{
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 26px;
+  margin: 0 auto;
+}
+.transport-center svg{
+  width: 14px;
+  height: 14px;
+  fill: #ccc;
+  cursor: pointer;
+}
+.transport-center svg:hover{
+  fill: #fff;
+}
+.transport-center .start,
+.transport-center .play{
+  background: #444;
+  border: 1px solid #555;
+  padding: 0 10px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.transport-center .start{
+  border-radius: 4px 0 0 4px;
+  border-right: 0;
+}
+.transport-center .play{
+  border-left: 0;
+  border-right: 0;
+}
+.transport-center .play[data-status='play'] svg{
+  fill: #ff4444;
+}
+.transport-center input[name='mmdd']{
+  width: 72px;
+  height: 100%;
+  border: 1px solid #555;
+  background: #1a1a1a;
+  color: #eee;
+  text-align: center;
+  font-size: 12px;
+  font-family: monospace;
+}
+.transport-center .loop{
+  background: #444;
+  border: 1px solid #555;
+  border-left: 0;
+  padding: 0 10px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+}
+.transport-center .loop[data-loop='on'] svg{
+  fill: #4ea8ff;
+}
+
+/* 旧 .controls は非表示（後方互換） */
 .controls{
-  --control-height:30px;
-
-  display:flex;
-  gap:10px;
-  margin-left:auto;
-  margin-bottom:10px;
-  height:var(--control-height);
-  padding-right:20px;
+  display: none;
 }
-
-.controls > *{
-  display:flex;
-  gap:0;
-  align-items:center;
-  margin-left:10px;
-  position:relative;
-}
-.controls .input-group .title{
-  margin:0;
-  padding:0;
-  background-color:black;
-  color:white;
-  padding:5px 10px;
-  font-size:12px;
-  /* border:1px solid #ddd; */
-}
-.controls .input-group input,
-.controls .input-group select{
-  width:100px;
-  height:100%;
-  /* border:1px solid #ddd; */
-  text-align:center;
-}
-.controls .input-group > *{
-  border:1px solid #888;
-}
-.controls .input-group > *+*{
-  border-left:0;
-}
-.controls .input-group > *:first-child{
-  border-radius:calc(var(--control-height) / 2) 0 0 calc(var(--control-height) / 2);
-}
-.controls .input-group > *:last-child{
-  border-radius:0 calc(var(--control-height) / 2) calc(var(--control-height) / 2) 0;
-}
-.controls div[name='time']::after{
-  content:'sec';
-  display:block;
-  width:50px;
-  text-align:right;
-  position:absolute;
-  right:15px;
-  font-size:12px;
-  color:black;
-}
-
-/* Play */
-.controls [name='play']{
-  display:flex;
-  gap:0px;
-}
-.controls [name='play'] svg{
-  width:16px;
-  height:16px;
-  fill:white;
-  cursor:pointer;
-}
-.controls [name='play'] svg:hover{
-  opacity:0.5;
-  /* fill:blue; */
-}
-.controls [name='play'] .play[data-status='play'] svg{
-  fill:red;
-}
-.controls [name='play'] input[name='mmdd']{
-  width:80px;
-  height:100%;
-  border:1px solid #aaa;
-  /* border-radius:4px; */
-  text-align:center;
-}
-
-.controls [name='play'] .start,
-.controls [name='play'] .play{
-  background-color:black;
-  border:0.5px solid  #aaa;
-  padding:5px 10px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.controls [name='play'] .start{
-  border-radius: calc(var(--control-height) / 2) 0 0 calc(var(--control-height) / 2);
-  border-right-width:0;
-}
-.controls [name='play'] .play{
-  border-left-width:0;
-}
-.controls [name='play'] .loop{
-  background-color:black;
-  border:0.5px solid #aaa;
-  padding:5px 10px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-radius: 0 calc(var(--control-height) / 2) calc(var(--control-height) / 2) 0;
-  border-left-width:0;
-}
-.controls [name='play'] .loop[data-loop='on'] svg{
-  fill:#4ea8ff;
-}
-
-/* .controls [name='play'] input[name='mmdd']::after{
-  content:'sec';
-} */
