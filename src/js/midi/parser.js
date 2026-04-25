@@ -15,7 +15,7 @@
 export class MidiParser{
 
   static get_code(str){
-    if(!str){return}
+    if(!str){return []}
     let T = 120, O = 5, S = '', V = 50
     let tempo = this.tdur(T , 4), datas = [], time = 0, res = null
     const reg = new RegExp(`(\\[(.+?)\\]|[A-G~STOV]+?)([0-9\+\-]*)`, 'gi')
