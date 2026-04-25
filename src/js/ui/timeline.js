@@ -1,5 +1,5 @@
 import { Element } from './element.js'
-import { get_msec, get_fulltime, get_sec_step, get_width } from '../util/time.js'
+import { get_msec, get_fulltime, get_sec_step, get_width, get_scale } from '../util/time.js'
 
 /**
  * タイムライン目盛り表示
@@ -22,11 +22,29 @@ export class Timeline{
     const msec = get_msec()
     const sec_step = get_sec_step()
     const max_msec = get_fulltime() / 100
+    const scale = get_scale()
+
+    // スケールに応じてラベルを間引く
+    // 1目盛りのpx幅が狭い時は、表示間隔を広げる
+    let labelInterval = 1  // 何目盛りごとにラベルを表示するか
+    if(scale < 0.4){
+      labelInterval = 5    // 秒単位のみ（0.5秒刻み）
+    } else if(scale < 0.7){
+      labelInterval = 2    // 1つおき
+    }
+
     for(let i=1; i<=max_msec; i++){
-      const div = document.createElement('div')
       const sec  = Math.floor(i / sec_step)
       const msec_val = i - sec * sec_step
-      if(i % sec_step === 0){
+      const isSec = (i % sec_step === 0)
+
+      // 間引き: labelInterval に合わないラベルはスキップ
+      if(!isSec && (i % labelInterval !== 0)){
+        continue
+      }
+
+      const div = document.createElement('div')
+      if(isSec){
         div.classList.add('sec')
         div.textContent = `${sec}.0`
       }

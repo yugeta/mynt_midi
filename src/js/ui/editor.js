@@ -1,7 +1,7 @@
 import { Element }  from './element.js'
 import { Css }      from '../core/css.js'
 import { get_pos_x, get_pos_y } from '../util/position.js'
-import { get_msec, get_msec_step, get_fulltime, set_width, sec2px } from '../util/time.js'
+import { get_msec, get_msec_step, get_fulltime, set_width, sec2px, apply_timeline_width } from '../util/time.js'
 import { MidiSerializer } from '../midi/serializer.js'
 import { MidiModel } from '../midi/model.js'
 import { MidiParser } from '../midi/parser.js'
@@ -163,10 +163,7 @@ export class Editor{
     if(duration > currentTime){
       const sec = Math.ceil(duration * 10) / 10
       Element.elm_time.value = sec
-      const msec = get_msec()
-      const sec_step = 10
-      const newWidth = sec * sec_step * msec
-      set_width(newWidth)
+      apply_timeline_width(sec)
       new Timeline().init()
     }
   }

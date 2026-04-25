@@ -2,10 +2,11 @@ import { Element }     from '../ui/element.js'
 import { MidiParser }  from '../midi/parser.js'
 import { MidiPlayer }  from '../midi/player.js'
 import { LayerModel }  from '../midi/layer-model.js'
+import { MidiModel }   from '../midi/model.js'
 import { StringInput } from './string-input.js'
 import { Timebar }     from '../ui/timebar.js'
 import { Timeline }    from '../ui/timeline.js'
-import { get_msec, get_fulltime, get_width, set_msec, set_width } from '../util/time.js'
+import { get_msec, get_fulltime, get_width, set_msec, set_width, get_scale, apply_scale, apply_timeline_width, sec2px } from '../util/time.js'
 
 /**
  * 再生/停止・設定制御
@@ -34,6 +35,11 @@ export class Controls{
     const trimBtn = document.querySelector('.trim-btn')
     if(trimBtn){
       trimBtn.addEventListener('click', this.click_trim.bind(this))
+    }
+
+    const scaleSlider = document.querySelector('.scale-slider')
+    if(scaleSlider){
+      scaleSlider.addEventListener('input', this.change_scale.bind(this))
     }
   }
 
@@ -74,10 +80,7 @@ export class Controls{
   change_time(e){
     const sec = Number(Element.elm_time.value)
     if(sec <= 0){ return }
-    const msec = get_msec()
-    const sec_step = 10  // 1秒あたりの目盛り数
-    const newWidth = sec * sec_step * msec
-    set_width(newWidth)
+    apply_timeline_width(sec)
     new Timeline().init()
   }
 
@@ -95,11 +98,41 @@ export class Controls{
 
     const sec = Math.ceil(maxDuration * 10) / 10
     Element.elm_time.value = sec
-    const msec = get_msec()
-    const sec_step = 10
-    const newWidth = sec * sec_step * msec
-    set_width(newWidth)
+    apply_timeline_width(sec)
     new Timeline().init()
+  }
+
+  /**
+   * Scale: タイムラインの表示倍率を変更
+   * ノートの時間的位置は変えず、ピクセル表示幅だけ拡大/縮小する
+   */
+  change_scale(e){
+    const pct = Number(e.target.value)
+    const label = document.querySelector('.scale-value')
+    if(label){ label.textContent = `${pct}%` }
+
+    // --time-msec を変更（目盛りのピクセル幅が変わる）
+    apply_scale(pct / 100)
+
+    // --time-sec を再計算（Time秒数は変わらない）
+    const sec = Number(Element.elm_time.value) || 1
+    apply_timeline_width(sec)
+
+    // アクティブレイヤーのノートのピクセル値を再計算
+    MidiModel.recalcPixels()
+
+    // 非アクティブレイヤーのスナップショットも再計算
+    for(const layer of LayerModel.layers){
+      if(!layer.notesData){ continue }
+      for(const n of layer.notesData){
+        n.left = sec2px(n.startTime)
+        n.width = sec2px(n.tempo)
+      }
+    }
+
+    // タイムラインを再描画、ノートはLayerModel通知で再描画
+    new Timeline().init()
+    LayerModel._notify()
   }
 
   /**

@@ -151,3 +151,27 @@
   background: #555;
   color: #fff;
 }
+
+/* Scale slider */
+.scale-group{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+}
+.scale-label{
+  font-size: 12px;
+  line-height: 1;
+}
+.scale-slider{
+  width: 80px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #4ea8ff;
+}
+.scale-value{
+  color: #999;
+  font-size: 11px;
+  min-width: 36px;
+  text-align: right;
+}

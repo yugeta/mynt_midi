@@ -267,6 +267,17 @@ export class MidiModel{
     }
   }
 
+  /**
+   * 秒数データ（startTime, tempo）からピクセル値（left, width）を再計算する
+   * スケール変更時に呼ぶ
+   */
+  static recalcPixels(){
+    for(const note of _notes){
+      note.left = sec2px(note.startTime)
+      note.width = sec2px(note.tempo)
+    }
+  }
+
   // --- モデルデータの保存・復元（レイヤー切替用） ---
 
   /**

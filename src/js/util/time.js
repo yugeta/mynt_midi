@@ -85,3 +85,36 @@ export function px2sec(px){
   const pps = get_px_per_sec()
   return pps > 0 ? px / pps : 0
 }
+
+// --- スケール管理 ---
+
+const _baseMsec = 50  // デフォルトの --time-msec 値
+
+/**
+ * 現在のスケール倍率を取得（1.0 = 100%）
+ */
+export function get_scale(){
+  return get_msec() / _baseMsec
+}
+
+/**
+ * スケール倍率を適用する
+ * --time-msec を baseMsec × scale に変更する
+ * @param {number} scale - 倍率（0.25〜4.0）
+ */
+export function apply_scale(scale){
+  scale = Math.max(0.25, Math.min(4.0, scale))
+  set_msec(_baseMsec * scale)
+}
+
+/**
+ * Time(秒) から --time-sec の幅を計算して設定する
+ * 全箇所で統一的に使う（--time-msec の現在値を使うのでスケールが自動反映される）
+ * @param {number} sec - Time の秒数
+ */
+export function apply_timeline_width(sec){
+  const msec = get_msec()
+  const sec_step = 10
+  const newWidth = sec * sec_step * msec
+  set_width(newWidth)
+}

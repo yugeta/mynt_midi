@@ -3,7 +3,7 @@ import { MidiModel }  from '../midi/model.js'
 import { LayerModel } from '../midi/layer-model.js'
 import { Element }   from '../ui/element.js'
 import { put_note, note_clear, scroll_middle } from '../util/position.js'
-import { get_width, get_fulltime, get_msec, set_width, sec2px } from '../util/time.js'
+import { get_width, get_fulltime, get_msec, set_width, sec2px, apply_timeline_width } from '../util/time.js'
 import { Timeline }  from '../ui/timeline.js'
 
 /**
@@ -65,10 +65,7 @@ export class StringInput{
       // 再生時間が Time を超えた場合のみ拡張
       const sec = Math.ceil(duration * 10) / 10
       Element.elm_time.value = sec
-      const msec = get_msec()
-      const sec_step = 10
-      const newWidth = sec * sec_step * msec
-      set_width(newWidth)
+      apply_timeline_width(sec)
       new Timeline().init()
     }
   }
