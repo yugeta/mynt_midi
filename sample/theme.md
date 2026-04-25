@@ -1,35 +1,7 @@
-midi sample
+# RPGオープニングテーマ
 ===
-```
-Create : 2023.08.219
-Author : Yugeta.Koji
-```
-
-# Coin
-```
-T600O6BT100O7E~
-```
-
-# 1up
-```
-T450O7EGO8ECDG
-```
-
-# ドカン
-```
-T3000O7EO6ADO7EO6ADO5GCO4FO3B T800S T3000O7EO6ADO7EO6ADO5GCO4FO3B T800S T3000O7EO6ADO7EO6ADO5GCO4FO3B
-```
-
-# ドラクエの階段上り下り
-```
-T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S T4000 [O5fO6fO7f][O2cO3cO4c][O4eO5eO6e][O3bO4bO5b] T300S
-```
-
-
-# AI作曲
 
 ## Chat GPT
-- RPGオープニングテーマ
 ```
 {
     "bpm": 110,
