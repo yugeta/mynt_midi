@@ -26,14 +26,14 @@ export class MidiParser{
       let value = res[3]
       let data = {}
       if(mode === "T"){
-        if(value){ T = value; tempo = this.tdur(T , 4) }
+        if(value){ T = Number(value); tempo = this.tdur(T , 4) }
         continue
       }
       else if(mode === "O"){
-        if(value){ O = value; continue }
+        if(value){ O = Number(value); continue }
       }
       else if(mode === "V"){
-        if(value){ V = value; continue }
+        if(value){ V = Number(value); continue }
       }
       else if(mode === "~" || mode === "S"){
         data = { S: mode, num: null, tempo: tempo, freq: null, volume: V }
@@ -118,14 +118,14 @@ export class MidiParser{
       let value = res[3]
       let data = {}
       if(mode === "T"){
-        if(value){ T = value; tempo = this.tdur(T , 4) }
+        if(value){ T = Number(value); tempo = this.tdur(T , 4) }
         continue
       }
       else if(mode === "O"){
-        if(value){ O = value; continue }
+        if(value){ O = Number(value); continue }
       }
       else if(mode === "V"){
-        if(value){ V = value; continue }
+        if(value){ V = Number(value); continue }
       }
       else if(mode === "~" || mode === "S"){
         data = { S: mode, num: null, tempo: tempo, freq: null, volume: V }

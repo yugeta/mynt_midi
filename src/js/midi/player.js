@@ -13,7 +13,9 @@ export class MidiPlayer{
 
   static get audio(){
     if(!MidiPlayer._audioContext || MidiPlayer._audioContext.state === 'closed'){
-      MidiPlayer._audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      // @ts-ignore — Safari旧バージョン向けフォールバック
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      MidiPlayer._audioContext = new AudioCtx()
     }
     return MidiPlayer._audioContext
   }
