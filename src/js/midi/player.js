@@ -29,6 +29,18 @@ export class MidiPlayer{
     return ctx
   }
 
+  /**
+   * 再生中の全音声を停止する
+   * AudioContext を閉じて破棄し、次回の再生時に新規作成させる。
+   */
+  static stop(){
+    if(!MidiPlayer._audioContext){ return }
+    if(MidiPlayer._audioContext.state !== 'closed'){
+      MidiPlayer._audioContext.close()
+    }
+    MidiPlayer._audioContext = null
+  }
+
   // --- 単音再生（キーボード用） ---
 
   /** 音名 → 半音オフセット */
@@ -160,6 +172,8 @@ export class MidiPlayer{
       oscillator[i].type = oscType
       gain[i] = act.createGain()
     }
+    destination.fftSize = 4096
+    destination.connect(act.destination)
     for(let i=0; i<cnt; i++){
       gain[i].gain.setValueAtTime(0, Math.max(0, startTime - 0.001))
       oscillator[i].connect(gain[i])

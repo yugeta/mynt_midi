@@ -94,21 +94,12 @@ export class Controls{
         // 停止
         this.play_status = ''
         Controls._startMs = null
-        // 再生中の音声を停止（AudioContextは閉じずにsuspendで止める）
-        if(MidiPlayer._audioContext && MidiPlayer._audioContext.state === 'running'){
-          MidiPlayer._audioContext.suspend()
-        }
+        MidiPlayer.stop()
         break
       default: {
         this.play_status = 'play'
 
-        // 前回 suspend していた場合は新しいコンテキストで再生
-        if(MidiPlayer._audioContext && MidiPlayer._audioContext.state === 'suspended'){
-          MidiPlayer._audioContext.close()
-          MidiPlayer._audioContext = null
-        }
-
-        // 音声再生（全レイヤー同時再生）
+        // 音声再生（全レイヤー同時再生）— ensureAudioReady は playLayers 内で呼ばれる
         await MidiPlayer.playLayers(LayerModel.layers)
 
         // 全レイヤーの最大再生時間をタイムバーの移動時間として使う
