@@ -10,6 +10,7 @@ import { SvgImport }   from './core/svg-import.js'
 import { LayerModel }  from './midi/layer-model.js'
 import { LayerPanel }  from './ui/layer-panel.js'
 import { Element }     from './ui/element.js'
+import { Menubar }     from './ui/menubar.js'
 
 class Main{
   constructor(){
@@ -17,6 +18,7 @@ class Main{
   }
 
   async init(){
+    await new Menubar().init()
     await new Keyboard().init()
     await new Editor().init()
     await new Timeline().init()

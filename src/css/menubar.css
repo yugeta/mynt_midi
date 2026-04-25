@@ -1,0 +1,85 @@
+.menubar{
+  display: flex;
+  align-items: center;
+  height: 32px;
+  background: #1e1e1e;
+  color: #ccc;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  z-index: 1000;
+}
+
+.menu-logo{
+  width: 18px;
+  height: 18px;
+  margin: 0 8px;
+  vertical-align: middle;
+}
+
+.menu-item{
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.menu-label{
+  padding: 0 10px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.menu-label:hover,
+.menu-item.active .menu-label{
+  background: #3c3c3c;
+  color: #fff;
+}
+
+.menu-dropdown{
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  background: #2d2d2d;
+  border: 1px solid #454545;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  padding: 4px 0;
+  z-index: 1001;
+}
+
+.menu-item.active .menu-dropdown{
+  display: block;
+}
+
+.menu-dropdown li{
+  padding: 6px 24px;
+  cursor: default;
+  white-space: nowrap;
+  color: #ccc;
+}
+
+.menu-dropdown li:hover{
+  background: #094771;
+  color: #fff;
+}
+
+.menu-separator{
+  height: 1px;
+  background: #454545;
+  margin: 4px 0;
+  padding: 0 !important;
+  pointer-events: none;
+}
+
+.menu-separator:hover{
+  background: #454545 !important;
+  color: transparent !important;
+}

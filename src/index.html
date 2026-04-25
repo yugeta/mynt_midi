@@ -10,6 +10,44 @@
   <script type='module' src='js/main.js'></script>
 </head>
 <body>
+  <nav class="menubar no-select">
+    <div class="menu-item">
+      <img class="menu-logo" src="favicon.png" alt="MYNT" />
+    </div>
+    <div class="menu-item" data-menu="file">
+      <span class="menu-label">ファイル</span>
+      <ul class="menu-dropdown">
+        <li data-action="new">新規作成</li>
+        <li data-action="open">開く</li>
+        <li class="menu-separator"></li>
+        <li data-action="save">保存</li>
+        <li data-action="save-as">名前を付けて保存</li>
+        <li class="menu-separator"></li>
+        <li data-action="json-import">JSON インポート</li>
+        <li data-action="json-export">JSON エクスポート</li>
+      </ul>
+    </div>
+    <div class="menu-item" data-menu="layer">
+      <span class="menu-label">レイヤー</span>
+      <ul class="menu-dropdown">
+        <li data-action="layer-add">レイヤー追加</li>
+        <li data-action="layer-duplicate">レイヤー複製</li>
+        <li data-action="layer-delete">レイヤー削除</li>
+        <li class="menu-separator"></li>
+        <li data-action="layer-up">レイヤーを上へ</li>
+        <li data-action="layer-down">レイヤーを下へ</li>
+      </ul>
+    </div>
+    <div class="menu-item" data-menu="help">
+      <span class="menu-label">ヘルプ</span>
+      <ul class="menu-dropdown">
+        <li data-action="about">MYNT MIDI について</li>
+        <li data-action="shortcuts">ショートカット一覧</li>
+        <li class="menu-separator"></li>
+        <li data-action="docs">ドキュメント</li>
+      </ul>
+    </div>
+  </nav>
   <header>
     <h1><img class='logo' src='favicon.png' />MYNT MIDI</h1>
     <div class='controls'>
