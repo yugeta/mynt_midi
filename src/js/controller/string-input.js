@@ -55,7 +55,13 @@ export class StringInput{
   _onLayerChange(){
     const currentActiveId = LayerModel.activeLayerId
     if(currentActiveId !== _lastActiveLayerId){
+      // 切り替え前のレイヤーに textarea の現在値を保存
+      const prevLayer = LayerModel.layers.find(l => l.id === _lastActiveLayerId)
+      if(prevLayer && Element.elm_midi_string){
+        prevLayer.midiString = Element.elm_midi_string.value
+      }
       _lastActiveLayerId = currentActiveId
+      // 新しいアクティブレイヤーの midiString を textarea に反映
       const activeLayer = LayerModel.activeLayer
       if(activeLayer && Element.elm_midi_string){
         Element.elm_midi_string.value = activeLayer.midiString

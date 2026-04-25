@@ -14,6 +14,9 @@ export class MidiPlayer{
     if(!MidiPlayer._audioContext || MidiPlayer._audioContext.state === 'closed'){
       MidiPlayer._audioContext = new (window.AudioContext || window.webkitAudioContext)()
     }
+    if(MidiPlayer._audioContext.state === 'suspended'){
+      MidiPlayer._audioContext.resume()
+    }
     return MidiPlayer._audioContext
   }
 

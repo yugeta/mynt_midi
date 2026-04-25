@@ -94,15 +94,22 @@ export class Controls{
         // 停止
         this.play_status = ''
         Controls._startMs = null
-        // 再生中の音声を停止
-        if(MidiPlayer._audioContext && MidiPlayer._audioContext.state !== 'closed'){
-          MidiPlayer._audioContext.close()
+        // 再生中の音声を停止（AudioContextは閉じずにsuspendで止める）
+        if(MidiPlayer._audioContext && MidiPlayer._audioContext.state === 'running'){
+          MidiPlayer._audioContext.suspend()
         }
         break
       default: {
         this.play_status = 'play'
 
-        // AudioContext の resume（初回のみ）
+        // 前回 suspend していた場合は新しいコンテキストで再生
+        if(MidiPlayer._audioContext && MidiPlayer._audioContext.state === 'suspended'){
+          // suspended 状態の古いコンテキストを閉じて新規作成
+          MidiPlayer._audioContext.close()
+          MidiPlayer._audioContext = null
+        }
+
+        // AudioContext を取得（必要なら新規作成される）
         const ctx = MidiPlayer.audio
         if(ctx.state === 'suspended'){
           await ctx.resume()
