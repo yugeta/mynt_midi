@@ -69,6 +69,6 @@ export class Controls extends Util{
     this.set_bar_pos(left)
 
     // repeat
-    window.requestAnimationFrame(this.play.bind(this))
+    window.requestAnimationFrame(this.play_control.bind(this))
   }
 }

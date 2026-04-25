@@ -74,7 +74,11 @@ export class Css{
     const styleSheets = Css.get_stylesheets()
     let arr = []
     for(const ss of styleSheets){
-      if(!ss.cssRules){continue}
+      try{
+        if(!ss.cssRules){continue}
+      }catch(e){
+        continue
+      }
       const res =  this.get_rule(ss.cssRules , selector)
       if(!res || !res.length){continue}
       arr = arr.concat(res)
@@ -89,10 +93,14 @@ export class Css{
       if(rule.selectorText === selector){
         arr.push(rule)
       }
-      if(rule.styleSheet && rule.styleSheet.cssRules){
-        const res = Css.get_rule(rule.styleSheet.cssRules , selector)
-        if(!res || !res.length){continue}
-        arr = arr.concat(res)
+      try{
+        if(rule.styleSheet && rule.styleSheet.cssRules){
+          const res = Css.get_rule(rule.styleSheet.cssRules , selector)
+          if(!res || !res.length){continue}
+          arr = arr.concat(res)
+        }
+      }catch(e){
+        continue
       }
     }
     return arr;
