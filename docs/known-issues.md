@@ -127,13 +127,14 @@ data = { S: S, num: num, tempo: tempo, freq: frequency, volume: V }
 
 ---
 
-## BUG-004: AudioContext の stop() による完全破棄
+## BUG-004: AudioContext の stop() による完全破棄 ✅ 修正済み（2026-04-25）
 
 | 項目 | 内容 |
 |---|---|
 | ファイル | `src/js/midi/player.js` |
 | 深刻度 | 中 |
 | API影響 | あり（ループ再生・連続再生に影響） |
+| 対応 | `close()` による破棄を廃止。OscillatorNode を `_activeNodes` で追跡し個別に `stop()` する方式に変更。再生終了時に自動クリーンアップ |
 
 ### 説明
 
@@ -266,7 +267,7 @@ static get_code(str){
 | BUG-001 | 中 | あり | パーサーの暗黙的型変換依存 | ✅ 修正済み |
 | BUG-002 | 低 | なし | webkitAudioContext の型警告 | ✅ 修正済み |
 | BUG-003 | 低 | なし | パーサーのコード重複 | ✅ 修正済み |
-| BUG-004 | 中 | あり | AudioContext の stop() による完全破棄 | 未対応 |
+| BUG-004 | 中 | あり | AudioContext の stop() による完全破棄 | ✅ 修正済み |
 | BUG-005 | 中 | あり | JsonConverter のラウンドトリップ精度劣化 | 未対応 |
 | BUG-006 | 低 | あり | play() の戻り値が空データ時に不統一 | 未対応 |
 

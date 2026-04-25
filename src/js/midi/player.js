@@ -31,16 +31,25 @@ export class MidiPlayer{
     return ctx
   }
 
+  /** アクティブなオシレーターとゲインノードの追跡用 */
+  static _activeNodes = []
+
   /**
    * 再生中の全音声を停止する
-   * AudioContext を閉じて破棄し、次回の再生時に新規作成させる。
+   * AudioContext は破棄せず、スケジュール済みノードを個別に停止する。
    */
   static stop(){
     if(!MidiPlayer._audioContext){ return }
-    if(MidiPlayer._audioContext.state !== 'closed'){
-      MidiPlayer._audioContext.close()
+    const now = MidiPlayer._audioContext.currentTime
+    for(const nodes of MidiPlayer._activeNodes){
+      for(const osc of nodes.oscillators){
+        try{ osc.stop(now) }catch(e){ /* 既に停止済み */ }
+      }
+      for(const g of nodes.gains){
+        try{ g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(0, now) }catch(e){}
+      }
     }
-    MidiPlayer._audioContext = null
+    MidiPlayer._activeNodes = []
   }
 
   // --- 単音再生（キーボード用） ---
@@ -220,6 +229,17 @@ export class MidiPlayer{
       oscillator[i].start(startTime)
       oscillator[i].stop(startTime + time)
     }
+
+    // ノードを追跡リストに登録
+    const nodeEntry = { oscillators: oscillator, gains: gain }
+    MidiPlayer._activeNodes.push(nodeEntry)
+
+    // 再生終了時に自動クリーンアップ
+    oscillator[0].onended = () => {
+      const idx = MidiPlayer._activeNodes.indexOf(nodeEntry)
+      if(idx !== -1){ MidiPlayer._activeNodes.splice(idx, 1) }
+    }
+
     return { startTime, duration: time }
   }
 
