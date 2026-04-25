@@ -15,10 +15,82 @@ export class MidiPlayer{
     if(!MidiPlayer._audioContext || MidiPlayer._audioContext.state === 'closed'){
       MidiPlayer._audioContext = new (window.AudioContext || window.webkitAudioContext)()
     }
-    if(MidiPlayer._audioContext.state === 'suspended'){
-      MidiPlayer._audioContext.resume()
-    }
     return MidiPlayer._audioContext
+  }
+
+  /**
+   * AudioContext が使用可能な状態であることを保証する
+   */
+  static async ensureAudioReady(){
+    const ctx = MidiPlayer.audio
+    if(ctx.state === 'suspended'){
+      await ctx.resume()
+    }
+    return ctx
+  }
+
+  // --- 単音再生（キーボード用） ---
+
+  /** 音名 → 半音オフセット */
+  static _NOTE_MAP = {
+    'C':0,'C+':1,'D-':1,'D':2,'D+':3,'E-':3,'E':4,'F-':4,
+    'F':5,'E+':5,'F+':6,'G-':6,'G':7,'G+':8,'A-':8,
+    'A':9,'A+':10,'B-':10,'B':11,'C-':11,'B+':0,
+  }
+
+  /**
+   * 1音を鳴らし始める（mousedown用）
+   * 戻り値のオブジェクトを stopNote() に渡して止める。
+   *
+   * @param {string} key - 音名 ('c','d-','f+' など)
+   * @param {number} octave - オクターブ (0-10)
+   * @param {object} [options] - { oscillatorType, volume }
+   * @returns {Promise<object|null>} stopNote() に渡すハンドル
+   */
+  static async startNote(key, octave, options){
+    const ctx = await MidiPlayer.ensureAudioReady()
+    const opts = options || {}
+
+    const noteKey = key.toUpperCase()
+    const semitone = MidiPlayer._NOTE_MAP[noteKey]
+    if(semitone == null){ return null }
+
+    const midi = (Number(octave) * 12) + semitone
+    const freq = 440 * Math.pow(2, (midi - 69) / 12)
+
+    const oscType = opts.oscillatorType || 'square'
+    const volume  = opts.volume != null ? opts.volume / 100 : 0.05
+
+    const now  = ctx.currentTime
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+
+    osc.type = oscType
+    osc.frequency.setValueAtTime(freq, now)
+    gain.gain.setValueAtTime(volume, now)
+
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now)
+
+    return { osc, gain, ctx }
+  }
+
+  /**
+   * startNote() で開始した音を止める（mouseup用）
+   * 急に切ると不快なので短いフェードアウト付き。
+   *
+   * @param {object} handle - startNote() の戻り値
+   */
+  static stopNote(handle){
+    if(!handle){ return }
+    const { osc, gain, ctx } = handle
+    const now = ctx.currentTime
+    const fadeOut = 0.08
+    gain.gain.cancelScheduledValues(now)
+    gain.gain.setValueAtTime(gain.gain.value, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + fadeOut)
+    osc.stop(now + fadeOut)
   }
 
   /**
@@ -26,7 +98,8 @@ export class MidiPlayer{
    * @param {string} midiString - MIDI文字列
    * @param {object} [options] - { oscillatorType, volume }
    */
-  static play(midiString, options){
+  static async play(midiString, options){
+    await MidiPlayer.ensureAudioReady()
     const datas = MidiParser.get_code(midiString)
     if(!datas || !datas.length){ return { startTime: 0, duration: 0 } }
     return MidiPlayer._schedule(datas, options || {})
@@ -35,7 +108,8 @@ export class MidiPlayer{
   /**
    * 複数レイヤーを同時再生する
    */
-  static playLayers(layers){
+  static async playLayers(layers){
+    await MidiPlayer.ensureAudioReady()
     const playable = MidiPlayer._getPlayableLayers(layers)
     if(!playable.length){ return { startTime: 0, duration: 0 } }
 
@@ -86,8 +160,11 @@ export class MidiPlayer{
       oscillator[i].type = oscType
       gain[i] = act.createGain()
     }
-    destination.fftSize = 4096
-    destination.connect(act.destination)
+    for(let i=0; i<cnt; i++){
+      gain[i].gain.setValueAtTime(0, Math.max(0, startTime - 0.001))
+      oscillator[i].connect(gain[i])
+      gain[i].connect(destination)
+    }
 
     let time = 0
     for(let i=0; i<datas.length; i++){
@@ -126,9 +203,6 @@ export class MidiPlayer{
     for(let i=0; i<cnt; i++){
       oscillator[i].start(startTime)
       oscillator[i].stop(startTime + time)
-      oscillator[i].connect(gain[i])
-      gain[i].gain.setValueAtTime(0, startTime)
-      gain[i].connect(destination)
     }
     return { startTime, duration: time }
   }

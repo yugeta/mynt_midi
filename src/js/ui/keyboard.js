@@ -36,7 +36,8 @@ export class Keyboard{
   }
 
   set_event(){
-    Element.elm_keyboard.addEventListener('click' , Keyboard.key_click)
+    Element.elm_keyboard.addEventListener('mousedown' , Keyboard.key_down)
+    window.addEventListener('mouseup' , Keyboard.key_up)
     // ホバーイベント（旧event.jsから統合）
     Element.elm_keyboard.addEventListener('mouseover' , Keyboard.mouseover_key)
     Element.elm_keyboard.addEventListener('mouseout'  , Keyboard.clear_active)
@@ -46,15 +47,25 @@ export class Keyboard{
     Element.elm_keyboard.scrollTop = (Element.elm_keyboard.scrollHeight - Element.elm_keyboard.offsetHeight) / 2
   }
 
-  static key_click(e){
+  static key_down(e){
     const elm_oct = e.target.closest('.octave')
     const elm_key = e.target.closest('[data-key]')
-    if(!elm_oct || !elm_key){return}
+    if(!elm_oct || !elm_key){ return }
+    e.preventDefault()
     const oct = elm_oct.getAttribute('data-octave')
     const key = elm_key.getAttribute('data-key')
     const active = LayerModel.activeLayer
     const oscType = active ? active.oscillatorType : 'square'
-    MidiPlayer.play(`T450O${oct}${key}`, { oscillatorType: oscType })
+    MidiPlayer.startNote(key, oct, { oscillatorType: oscType }).then(handle => {
+      Keyboard._activeNote = handle
+    })
+  }
+
+  static key_up(){
+    if(Keyboard._activeNote){
+      MidiPlayer.stopNote(Keyboard._activeNote)
+      Keyboard._activeNote = null
+    }
   }
 
   static mouseover_key(e){

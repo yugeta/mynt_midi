@@ -104,19 +104,12 @@ export class Controls{
 
         // 前回 suspend していた場合は新しいコンテキストで再生
         if(MidiPlayer._audioContext && MidiPlayer._audioContext.state === 'suspended'){
-          // suspended 状態の古いコンテキストを閉じて新規作成
           MidiPlayer._audioContext.close()
           MidiPlayer._audioContext = null
         }
 
-        // AudioContext を取得（必要なら新規作成される）
-        const ctx = MidiPlayer.audio
-        if(ctx.state === 'suspended'){
-          await ctx.resume()
-        }
-
         // 音声再生（全レイヤー同時再生）
-        MidiPlayer.playLayers(LayerModel.layers)
+        await MidiPlayer.playLayers(LayerModel.layers)
 
         // 全レイヤーの最大再生時間をタイムバーの移動時間として使う
         const totalMs = Controls._getMaxDuration()
