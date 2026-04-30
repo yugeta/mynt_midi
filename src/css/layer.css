@@ -3,7 +3,7 @@
   padding: 8px 10px;
   background: #f5f5f5;
   border-right: 1px solid #ddd;
-  flex: 0 0 33.3%;
+  flex: 0 0 50%;
   min-width: 0;
   overflow-y: auto;
 }
