@@ -12,6 +12,7 @@ import { MidiModel }   from './midi/model.js'
 import { LayerPanel }  from './ui/layer-panel.js'
 import { Element }     from './ui/element.js'
 import { Menubar }     from './ui/menubar.js'
+import { UndoManager } from './controller/undo-manager.js'
 import { apply_timeline_width, apply_scale, sec2px } from './util/time.js'
 
 class Main{
@@ -83,6 +84,26 @@ class Main{
       new Timeline().init()
       LayerModel._notify()
     }
+
+    // Undo/Redo 初期化 + キーボードショートカット
+    UndoManager.init()
+    window.addEventListener('keydown', (e) => {
+      // テキスト入力中は無視
+      if (e.target.closest('input, textarea, select')) { return }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        UndoManager.undo()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault()
+        UndoManager.redo()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault()
+        UndoManager.redo()
+      }
+    })
   }
 }
 

@@ -7,6 +7,7 @@ import { MidiModel } from '../midi/model.js'
 import { MidiParser } from '../midi/parser.js'
 import { MidiPlayer } from '../midi/player.js'
 import { LayerModel } from '../midi/layer-model.js'
+import { UndoManager } from '../controller/undo-manager.js'
 import { Timeline } from './timeline.js'
 
 export class Editor{
@@ -289,6 +290,7 @@ export class Editor{
     if(moved || mode === 'place'){
       MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
       Editor._syncTimeDisplay()
+      UndoManager.push()
     }
   }
 
@@ -335,6 +337,7 @@ export class Editor{
     // モデルからMIDI文字列を再生成してtextareaに反映
     MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
     Editor._syncTimeDisplay()
+    UndoManager.push()
   }
   clear_status_all_note(){
     const elms = Element.elm_editor.querySelectorAll(`.note[data-status='active']`)

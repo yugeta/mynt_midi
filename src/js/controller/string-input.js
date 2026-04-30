@@ -1,6 +1,7 @@
 import { MidiParser } from '../midi/parser.js'
 import { MidiModel }  from '../midi/model.js'
 import { LayerModel } from '../midi/layer-model.js'
+import { UndoManager } from './undo-manager.js'
 import { Element }   from '../ui/element.js'
 import { put_note, note_clear, scroll_middle } from '../util/position.js'
 import { get_width, get_fulltime, get_msec, set_width, sec2px, apply_timeline_width } from '../util/time.js'
@@ -57,6 +58,9 @@ export class StringInput{
     StringInput._syncTimeDisplay()
     // localStorageに保存
     LayerModel._saveToStorage()
+    // Undo履歴に追加（デバウンス: 入力が500ms止まったら確定）
+    clearTimeout(StringInput._undoTimer)
+    StringInput._undoTimer = setTimeout(() => UndoManager.push(), 500)
   }
 
   /**
@@ -115,6 +119,7 @@ export class StringInput{
       }
       // レイヤー切替後に保存
       LayerModel._saveToStorage()
+      UndoManager.onLayerSwitch()
     }
     note_clear()
     this.renderAllLayers()

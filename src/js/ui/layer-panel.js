@@ -1,6 +1,7 @@
 import { LayerModel }  from '../midi/layer-model.js'
 import { MidiParser } from '../midi/parser.js'
 import { MidiModel }  from '../midi/model.js'
+import { UndoManager } from '../controller/undo-manager.js'
 import { Element }    from './element.js'
 
 /**
@@ -445,5 +446,6 @@ export class LayerPanel {
 
     LayerModel._notify()
     LayerModel._saveToStorage()
+    UndoManager.push()
   }
 }
