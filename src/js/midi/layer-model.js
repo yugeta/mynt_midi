@@ -173,5 +173,30 @@ export class LayerModel {
     for (const cb of _callbacks) {
       cb()
     }
+    LayerModel._saveToStorage()
+  }
+
+  // --- localStorage 永続化 ---
+
+  static _STORAGE_KEY = 'mynt_layers'
+
+  static _saveToStorage() {
+    try {
+      const json = JSON.stringify(LayerModel.toJSON())
+      localStorage.setItem(LayerModel._STORAGE_KEY, json)
+    } catch(e) { /* quota exceeded etc. */ }
+  }
+
+  static loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(LayerModel._STORAGE_KEY)
+      if (!raw) { return false }
+      const data = JSON.parse(raw)
+      if (!data || !Array.isArray(data.layers) || data.layers.length === 0) { return false }
+      LayerModel.fromJSON(data)
+      return true
+    } catch(e) {
+      return false
+    }
   }
 }

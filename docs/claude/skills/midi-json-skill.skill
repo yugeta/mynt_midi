@@ -1,0 +1,52 @@
+{
+  "format_version": "2.0",
+  "layers": [
+    {
+      "name": "Melody",
+      "oscillatorType": "square",
+      "volume": 75,
+      "bpm": 110,
+      "notes": [
+        { "pitch": "E4", "duration": "8n" },
+        { "pitch": "G4", "duration": "8n" },
+        { "pitch": "A4", "duration": "4n" },
+        { "pitch": "G4", "duration": "4n" },
+        { "pitch": "E4", "duration": "2n" },
+        { "pitch": "C5", "duration": "4n" },
+        { "pitch": "B4", "duration": "8n" },
+        { "pitch": "A4", "duration": "8n" },
+        { "pitch": "G4", "duration": "4n" },
+        { "pitch": "E4", "duration": "2n" },
+        { "pitch": "fade", "duration": "2n" }
+      ]
+    },
+    {
+      "name": "Chord",
+      "oscillatorType": "sine",
+      "volume": 35,
+      "bpm": 110,
+      "notes": [
+        { "pitch": ["C4", "E4", "G4"], "duration": "2n" },
+        { "pitch": ["F4", "A4", "C5"], "duration": "2n" },
+        { "pitch": ["G3", "B3", "D4"], "duration": "2n" },
+        { "pitch": ["A3", "C4", "E4"], "duration": "2n" },
+        { "pitch": ["F4", "A4", "C5"], "duration": "2n" },
+        { "pitch": "fade", "duration": "2n" }
+      ]
+    },
+    {
+      "name": "Bass",
+      "oscillatorType": "triangle",
+      "volume": 50,
+      "bpm": 110,
+      "notes": [
+        { "pitch": "C3", "duration": "2n" },
+        { "pitch": "F2", "duration": "2n" },
+        { "pitch": "G2", "duration": "2n" },
+        { "pitch": "A2", "duration": "2n" },
+        { "pitch": "F2", "duration": "2n" },
+        { "pitch": "fade", "duration": "2n" }
+      ]
+    }
+  ]
+}

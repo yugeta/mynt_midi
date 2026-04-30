@@ -130,11 +130,15 @@ export class MidiPlayer{
 
   /**
    * 複数レイヤーを同時再生する
+   * @param {Array} layers - レイヤー配列
+   * @param {object} [options] - { offsetSec?: number }
    */
-  static async playLayers(layers){
+  static async playLayers(layers, options){
     await MidiPlayer.ensureAudioReady()
     const playable = MidiPlayer._getPlayableLayers(layers)
     if(!playable.length){ return { startTime: 0, duration: 0 } }
+
+    const offsetSec = (options && options.offsetSec) || 0
 
     let maxDuration = 0
     for(const layer of playable){
@@ -143,6 +147,7 @@ export class MidiPlayer{
       const result = MidiPlayer._schedule(datas, {
         oscillatorType: layer.oscillatorType || 'square',
         volume: layer.volume,
+        offsetSec,
       })
       if(result && result.duration > maxDuration){
         maxDuration = result.duration
@@ -165,7 +170,7 @@ export class MidiPlayer{
   /**
    * パース済みデータを Web Audio API でスケジュールする（統合メソッド）
    * @param {Array} datas - MidiParser.get_code() の結果
-   * @param {object} options - { oscillatorType?: string, volume?: number }
+   * @param {object} options - { oscillatorType?: string, volume?: number, offsetSec?: number }
    */
   static _schedule(datas, options){
     const act = MidiPlayer.audio
@@ -177,6 +182,7 @@ export class MidiPlayer{
 
     const oscType     = options.oscillatorType || 'square'
     const masterVol   = (options.volume != null ? options.volume : 100) / 100
+    const offsetSec   = options.offsetSec || 0
 
     for(let i=0; i<cnt; i++){
       oscillator[i] = act.createOscillator()
@@ -191,43 +197,70 @@ export class MidiPlayer{
       gain[i].connect(destination)
     }
 
+    // オフセット適用: offsetSec より前のノートはスキップし、
+    // 以降のノートは (time - offsetSec) 秒後にスケジュールする
     let time = 0
+    let scheduleTime = 0
     for(let i=0; i<datas.length; i++){
       const data = datas[i]
+      const noteEnd = time + data.tempo
+
+      // このノートの終了がオフセットより前ならスキップ
+      if(noteEnd <= offsetSec){
+        time = noteEnd
+        continue
+      }
+
+      // スケジュール上の時刻（オフセット分を差し引く）
+      const t = Math.max(0, time - offsetSec)
       const vol = ((data.volume || 50) / 1000) * masterVol
 
       if(data.freq){
         for(let j=0; j<cnt; j++){
-          gain[j].gain.setValueAtTime(vol, startTime + time)
+          gain[j].gain.setValueAtTime(vol, startTime + t)
           if(data.freq.constructor === Array){
             for(let k=0; k<cnt; k++){
               const freq = data.freq[k] || data.freq[0]
-              oscillator[k].frequency.setValueAtTime(freq, startTime + time)
+              oscillator[k].frequency.setValueAtTime(freq, startTime + t)
             }
           }
           else{
-            oscillator[j].frequency.setValueAtTime(data.freq, startTime + time)
+            oscillator[j].frequency.setValueAtTime(data.freq, startTime + t)
           }
         }
       }
       else if(data.S === 'S'){
         for(let j=0; j<cnt; j++){
-          gain[j].gain.setValueAtTime(0, startTime + time)
-          oscillator[j].frequency.setValueAtTime(0, startTime + time)
+          gain[j].gain.setValueAtTime(0, startTime + t)
+          oscillator[j].frequency.setValueAtTime(0, startTime + t)
         }
       }
       else if(data.S === '~'){
         for(let j=0; j<cnt; j++){
-          gain[j].gain.linearRampToValueAtTime(0, startTime + time + data.tempo)
+          gain[j].gain.linearRampToValueAtTime(0, startTime + t + data.tempo)
         }
       }
-      else{ continue }
-      time += data.tempo
+      else{
+        time = noteEnd
+        continue
+      }
+      time = noteEnd
+      scheduleTime = t + data.tempo
+    }
+
+    // スケジュールするノートがなかった場合
+    if(scheduleTime <= 0){
+      for(let i=0; i<cnt; i++){
+        oscillator[i].connect(gain[i])  // already connected above
+        oscillator[i].start(startTime)
+        oscillator[i].stop(startTime)
+      }
+      return { startTime, duration: 0 }
     }
 
     for(let i=0; i<cnt; i++){
       oscillator[i].start(startTime)
-      oscillator[i].stop(startTime + time)
+      oscillator[i].stop(startTime + scheduleTime)
     }
 
     // ノードを追跡リストに登録
@@ -240,7 +273,7 @@ export class MidiPlayer{
       if(idx !== -1){ MidiPlayer._activeNodes.splice(idx, 1) }
     }
 
-    return { startTime, duration: time }
+    return { startTime, duration: scheduleTime }
   }
 
   /**

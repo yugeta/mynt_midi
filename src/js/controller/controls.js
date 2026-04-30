@@ -6,7 +6,7 @@ import { MidiModel }   from '../midi/model.js'
 import { StringInput } from './string-input.js'
 import { Timebar }     from '../ui/timebar.js'
 import { Timeline }    from '../ui/timeline.js'
-import { get_msec, get_fulltime, get_width, set_msec, set_width, get_scale, apply_scale, apply_timeline_width, sec2px } from '../util/time.js'
+import { get_msec, get_fulltime, get_width, set_msec, set_width, get_scale, apply_scale, apply_timeline_width, sec2px, px2sec } from '../util/time.js'
 
 /**
  * 再生/停止・設定制御
@@ -31,6 +31,11 @@ export class Controls{
     Element.elm_time.addEventListener('change' , this.change_time.bind(this))
     Element.elm_play.addEventListener('click'  , this.click_play.bind(this))
     Element.elm_loop.addEventListener('click'  , this.click_loop.bind(this))
+
+    const startBtn = document.querySelector(`[name='play'] .start`)
+    if(startBtn){
+      startBtn.addEventListener('click', this.click_start.bind(this))
+    }
 
     const trimBtn = document.querySelector('.trim-btn')
     if(trimBtn){
@@ -62,6 +67,13 @@ export class Controls{
   click_loop(){
     const current = Element.elm_loop.getAttribute('data-loop')
     Element.elm_loop.setAttribute('data-loop', current === 'on' ? '' : 'on')
+  }
+
+  /**
+   * Start: カーソル（タイムバー）を先頭（0秒位置）に戻す
+   */
+  click_start(){
+    this._timebar.set_bar_pos(0)
   }
 
   // MIDI文字列の実再生時間からTime入力欄を設定
@@ -110,6 +122,9 @@ export class Controls{
     const pct = Number(e.target.value)
     const label = document.querySelector('.scale-value')
     if(label){ label.textContent = `${pct}%` }
+
+    // スケール値を保存
+    try { localStorage.setItem('mynt_scale', String(pct)) } catch(e){}
 
     // --time-msec を変更（目盛りのピクセル幅が変わる）
     apply_scale(pct / 100)
@@ -162,15 +177,22 @@ export class Controls{
       default: {
         this.play_status = 'play'
 
-        // 音声再生（全レイヤー同時再生）
-        await MidiPlayer.playLayers(LayerModel.layers)
+        // タイムバーの現在位置からオフセット（秒）を取得
+        const barLeft = Element.elm_timebar_icon
+          ? Number(Element.elm_timebar_icon.style.getPropertyValue('left').replace('px','') || 0)
+          : 0
+        const offsetSec = px2sec(barLeft)
+
+        // 音声再生（全レイヤー同時再生、オフセット付き）
+        await MidiPlayer.playLayers(LayerModel.layers, { offsetSec })
 
         // タイムバーは Time（タイムライン全体秒数）基準で移動
         const timeSec = Number(Element.elm_time.value) || (get_fulltime() / 1000)
         const totalMs = timeSec * 1000
+        const offsetMs = offsetSec * 1000
 
-        // タイムバーアニメーション開始
-        Controls._startMs = Date.now()
+        // タイムバーアニメーション開始（オフセット分を既に経過したものとして扱う）
+        Controls._startMs = Date.now() - offsetMs
         Controls._totalMs = totalMs
         Controls._audioDurationMs = Controls._getMaxDuration()
         Controls._timelineWidth = get_width()

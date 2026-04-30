@@ -48,6 +48,8 @@ export class StringInput{
     note_clear()
     this.renderAllLayers()
     StringInput._syncTimeDisplay()
+    // localStorageに保存
+    LayerModel._saveToStorage()
   }
 
   /**
@@ -104,6 +106,8 @@ export class StringInput{
           Element.elm_midi_string.value = activeLayer.midiString || ''
         }
       }
+      // レイヤー切替後に保存
+      LayerModel._saveToStorage()
     }
     note_clear()
     this.renderAllLayers()
