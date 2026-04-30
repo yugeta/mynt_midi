@@ -25,6 +25,11 @@
 .keyboard .octave *[data-status='active']{
   background-color:orange!important;
 }
+.keyboard .octave *[data-status='playing']{
+  background-color:#4fc3f7!important;
+  box-shadow: 0 0 8px 2px rgba(79, 195, 247, 0.6);
+  transition: background-color 0.05s;
+}
 .keyboard .octave *:active{
   background-color:red!important;
 }

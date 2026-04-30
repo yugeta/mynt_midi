@@ -91,4 +91,36 @@ export class Keyboard{
       active.removeAttribute('data-status')
     }
   }
+
+  /**
+   * 再生中のキーをハイライトする
+   * @param {Set} activeKeys - "octave:key" 形式のセット (例: "5:c", "4:g-")
+   */
+  static setPlaying(activeKeys){
+    // 前回のハイライトをクリア
+    const prev = Element.elm_keyboard.querySelectorAll(`[data-status='playing']`)
+    for(const el of prev){
+      el.removeAttribute('data-status')
+    }
+
+    // 新しいハイライトを設定
+    for(const noteKey of activeKeys){
+      const [octave, key] = noteKey.split(':')
+      const octEl = Element.elm_keyboard.querySelector(`.octave[data-octave='${octave}']`)
+      if(!octEl){ continue }
+      const keyEl = octEl.querySelector(`[data-key='${key}']`)
+      if(!keyEl){ continue }
+      keyEl.setAttribute('data-status', 'playing')
+    }
+  }
+
+  /**
+   * 再生ハイライトをすべてクリアする
+   */
+  static clearPlaying(){
+    const playing = Element.elm_keyboard.querySelectorAll(`[data-status='playing']`)
+    for(const el of playing){
+      el.removeAttribute('data-status')
+    }
+  }
 }

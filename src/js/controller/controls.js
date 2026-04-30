@@ -6,6 +6,7 @@ import { MidiModel }   from '../midi/model.js'
 import { StringInput } from './string-input.js'
 import { Timebar }     from '../ui/timebar.js'
 import { Timeline }    from '../ui/timeline.js'
+import { Keyboard }    from '../ui/keyboard.js'
 import { get_msec, get_fulltime, get_width, set_msec, set_width, get_scale, apply_scale, apply_timeline_width, sec2px, px2sec } from '../util/time.js'
 
 /**
@@ -172,6 +173,8 @@ export class Controls{
         // 停止
         this.play_status = ''
         Controls._startMs = null
+        Controls._noteTimeline = null
+        Keyboard.clearPlaying()
         MidiPlayer.stop()
         break
       default: {
@@ -185,6 +188,9 @@ export class Controls{
 
         // 音声再生（全レイヤー同時再生、オフセット付き）
         await MidiPlayer.playLayers(LayerModel.layers, { offsetSec })
+
+        // キーボードハイライト用のノートタイムテーブルを構築
+        Controls._noteTimeline = Controls._buildNoteTimeline(offsetSec)
 
         // タイムバーは Time（タイムライン全体秒数）基準で移動
         const timeSec = Number(Element.elm_time.value) || (get_fulltime() / 1000)
@@ -215,18 +221,21 @@ export class Controls{
     // タイムバー終了判定（Time 基準）
     if(elapsed >= total){
       this._timebar.set_bar_pos(width)
+      Keyboard.clearPlaying()
 
       // ループモード: 先頭に戻って再生を繰り返す
       if(this.loop_enabled){
         this._timebar.set_bar_pos(0)
         MidiPlayer.playLayers(LayerModel.layers)
         Controls._startMs = Date.now()
+        Controls._noteTimeline = Controls._buildNoteTimeline(0)
         window.requestAnimationFrame(this.play_control.bind(this))
         return
       }
 
       this.play_status = ''
       Controls._startMs = null
+      Controls._noteTimeline = null
       return
     }
 
@@ -234,6 +243,85 @@ export class Controls{
     const left = (elapsed / total) * width
     this._timebar.set_bar_pos(left)
 
+    // キーボードハイライト更新
+    Controls._updateKeyboardHighlight(elapsed / 1000)
+
     window.requestAnimationFrame(this.play_control.bind(this))
+  }
+
+  /**
+   * 再生可能レイヤーのノートからタイムテーブルを構築する
+   * @param {number} offsetSec - 再生開始オフセット（秒）
+   * @returns {Array} [{startSec, endSec, octave, key}, ...]
+   */
+  static _buildNoteTimeline(offsetSec){
+    const timeline = []
+    const playable = MidiPlayer._getPlayableLayers(LayerModel.layers)
+
+    for(const layer of playable){
+      const datas = MidiParser.get_code(layer.midiString)
+      if(!datas || !datas.length){ continue }
+
+      for(const data of datas){
+        if(!data.freq){ continue }
+        const startSec = data.time - data.tempo - offsetSec
+        const endSec = data.time - offsetSec
+        if(endSec <= 0){ continue } // オフセットより前のノートはスキップ
+
+        // 和音の処理
+        if(data.freq.constructor === Array){
+          // 和音内の各音を取得
+          const reg = /\[(.+?)\]/i
+          const res = reg.exec(data.S)
+          if(res){
+            const chordNotes = MidiParser.get_code(res[1])
+            if(chordNotes){
+              for(const cn of chordNotes){
+                if(cn.O != null && cn.S){
+                  timeline.push({
+                    startSec: Math.max(0, startSec),
+                    endSec,
+                    octave: cn.O,
+                    key: cn.S.toLowerCase()
+                  })
+                }
+              }
+            }
+          }
+        } else if(data.O != null) {
+          // 単音
+          timeline.push({
+            startSec: Math.max(0, startSec),
+            endSec,
+            octave: data.O,
+            key: data.S.toLowerCase()
+          })
+        }
+      }
+    }
+
+    // startSec でソート
+    timeline.sort((a, b) => a.startSec - b.startSec)
+    return timeline
+  }
+
+  /**
+   * 現在の再生時刻に鳴っているノートのキーをハイライトする
+   * @param {number} currentSec - 再生開始からの経過秒数
+   */
+  static _updateKeyboardHighlight(currentSec){
+    const timeline = Controls._noteTimeline
+    if(!timeline || !timeline.length){ return }
+
+    // 現在鳴っているノートを収集
+    const activeKeys = new Set()
+    for(const note of timeline){
+      if(note.startSec > currentSec){ break } // ソート済みなので以降は未来
+      if(note.endSec > currentSec){
+        activeKeys.add(`${note.octave}:${note.key}`)
+      }
+    }
+
+    Keyboard.setPlaying(activeKeys)
   }
 }
