@@ -172,3 +172,28 @@
 .controls .input-group[name='oscillator-type'] {
   display: none;
 }
+
+/* Transpose buttons */
+.layer-transpose-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.layer-transpose-btn {
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  cursor: pointer;
+  background: #fff;
+  color: #555;
+  min-width: 22px;
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+.layer-transpose-btn:hover {
+  background: #4A90D9;
+  color: #fff;
+  border-color: #4A90D9;
+}

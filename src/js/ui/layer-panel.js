@@ -1,4 +1,6 @@
-import { LayerModel } from '../midi/layer-model.js'
+import { LayerModel }  from '../midi/layer-model.js'
+import { MidiParser } from '../midi/parser.js'
+import { MidiModel }  from '../midi/model.js'
 import { Element }    from './element.js'
 
 /**
@@ -179,6 +181,57 @@ export class LayerPanel {
       LayerModel.updateLayer(layer.id, { solo: !layer.solo })
     })
     row.appendChild(soloBtn)
+
+    // トランスポーズボタン群
+    const transposeWrap = document.createElement('div')
+    transposeWrap.classList.add('layer-transpose-wrap')
+    transposeWrap.title = 'Transpose — 音程をずらす'
+
+    const btnOctDown = document.createElement('button')
+    btnOctDown.classList.add('layer-transpose-btn')
+    btnOctDown.textContent = '-8'
+    btnOctDown.title = '1オクターブ下げる'
+    btnOctDown.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this._transposeLayer(layer.id, -12)
+    })
+    btnOctDown.addEventListener('mousedown', (e) => e.stopPropagation())
+
+    const btnDown = document.createElement('button')
+    btnDown.classList.add('layer-transpose-btn')
+    btnDown.textContent = '-1'
+    btnDown.title = '半音下げる'
+    btnDown.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this._transposeLayer(layer.id, -1)
+    })
+    btnDown.addEventListener('mousedown', (e) => e.stopPropagation())
+
+    const btnUp = document.createElement('button')
+    btnUp.classList.add('layer-transpose-btn')
+    btnUp.textContent = '+1'
+    btnUp.title = '半音上げる'
+    btnUp.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this._transposeLayer(layer.id, 1)
+    })
+    btnUp.addEventListener('mousedown', (e) => e.stopPropagation())
+
+    const btnOctUp = document.createElement('button')
+    btnOctUp.classList.add('layer-transpose-btn')
+    btnOctUp.textContent = '+8'
+    btnOctUp.title = '1オクターブ上げる'
+    btnOctUp.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this._transposeLayer(layer.id, 12)
+    })
+    btnOctUp.addEventListener('mousedown', (e) => e.stopPropagation())
+
+    transposeWrap.appendChild(btnOctDown)
+    transposeWrap.appendChild(btnDown)
+    transposeWrap.appendChild(btnUp)
+    transposeWrap.appendChild(btnOctUp)
+    row.appendChild(transposeWrap)
 
     // 音量スライダー + 数値表示
     const volWrap = document.createElement('div')
@@ -368,5 +421,29 @@ export class LayerPanel {
       errorEl.textContent = `エラー: ${e.message}`
       errorEl.className = 'json-modal-error'
     }
+  }
+
+  // --- トランスポーズ ---
+
+  _transposeLayer(layerId, semitones) {
+    const layer = LayerModel.layers.find(l => l.id === layerId)
+    if (!layer || !layer.midiString) { return }
+
+    const transposed = MidiParser.transpose(layer.midiString, semitones)
+    layer.midiString = transposed
+
+    // アクティブレイヤーならtextareaとモデルも更新
+    if (layerId === LayerModel.activeLayerId) {
+      if (Element.elm_midi_string) {
+        Element.elm_midi_string.value = transposed
+      }
+      MidiModel.fromString(transposed)
+    } else if (layer.notesData) {
+      // 非アクティブレイヤーのスナップショットをクリア（再描画時にmidiStringから再生成）
+      layer.notesData = null
+    }
+
+    LayerModel._notify()
+    LayerModel._saveToStorage()
   }
 }
