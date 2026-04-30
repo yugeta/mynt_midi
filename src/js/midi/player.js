@@ -88,32 +88,40 @@ export class MidiPlayer{
     const osc  = ctx.createOscillator()
     const gain = ctx.createGain()
 
+    const env = MidiPlayer._getEnvelope(oscType)
+
     osc.type = oscType
     osc.frequency.setValueAtTime(freq, now)
-    gain.gain.setValueAtTime(volume, now)
+
+    // Attack エンベロープ
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.linearRampToValueAtTime(volume, now + env.attack)
+    // Decay → Sustain
+    gain.gain.linearRampToValueAtTime(volume * env.sustain, now + env.attack + env.decay)
 
     osc.connect(gain)
     gain.connect(ctx.destination)
     osc.start(now)
 
-    return { osc, gain, ctx }
+    return { osc, gain, ctx, oscType }
   }
 
   /**
    * startNote() で開始した音を止める（mouseup用）
-   * 急に切ると不快なので短いフェードアウト付き。
+   * ADSR の Release フェーズを適用する。
    *
    * @param {object} handle - startNote() の戻り値
    */
   static stopNote(handle){
     if(!handle){ return }
-    const { osc, gain, ctx } = handle
+    const { osc, gain, ctx, oscType } = handle
     const now = ctx.currentTime
-    const fadeOut = 0.08
+    const env = MidiPlayer._getEnvelope(oscType || 'square')
+    const release = env.release || 0.08
     gain.gain.cancelScheduledValues(now)
     gain.gain.setValueAtTime(gain.gain.value, now)
-    gain.gain.exponentialRampToValueAtTime(0.001, now + fadeOut)
-    osc.stop(now + fadeOut)
+    gain.gain.linearRampToValueAtTime(0, now + release)
+    osc.stop(now + release)
   }
 
   /**
@@ -184,6 +192,9 @@ export class MidiPlayer{
     const masterVol   = (options.volume != null ? options.volume : 100) / 100
     const offsetSec   = options.offsetSec || 0
 
+    // ADSR エンベロープパラメータ（秒）
+    const env = MidiPlayer._getEnvelope(oscType)
+
     for(let i=0; i<cnt; i++){
       oscillator[i] = act.createOscillator()
       oscillator[i].type = oscType
@@ -216,16 +227,39 @@ export class MidiPlayer{
       const vol = ((data.volume || 50) / 1000) * masterVol
 
       if(data.freq){
+        const noteDur = data.tempo
+        const attack  = Math.min(env.attack, noteDur * 0.3)
+        const decay   = Math.min(env.decay, noteDur * 0.3)
+        const release = Math.min(env.release, noteDur * 0.4)
+        const sustainTime = Math.max(0, noteDur - attack - decay - release)
+        const sustainVol  = vol * env.sustain
+
         for(let j=0; j<cnt; j++){
-          gain[j].gain.setValueAtTime(vol, startTime + t)
+          const g = gain[j].gain
+          const noteStart = startTime + t
+
+          // Attack: 0 → vol
+          g.setValueAtTime(0, noteStart)
+          g.linearRampToValueAtTime(vol, noteStart + attack)
+
+          // Decay: vol → sustainVol
+          g.linearRampToValueAtTime(sustainVol, noteStart + attack + decay)
+
+          // Sustain: sustainVol を維持
+          g.setValueAtTime(sustainVol, noteStart + attack + decay + sustainTime)
+
+          // Release: sustainVol → 0
+          g.linearRampToValueAtTime(0, noteStart + noteDur)
+
+          // 周波数設定
           if(data.freq.constructor === Array){
             for(let k=0; k<cnt; k++){
               const freq = data.freq[k] || data.freq[0]
-              oscillator[k].frequency.setValueAtTime(freq, startTime + t)
+              oscillator[k].frequency.setValueAtTime(freq, noteStart)
             }
           }
           else{
-            oscillator[j].frequency.setValueAtTime(data.freq, startTime + t)
+            oscillator[j].frequency.setValueAtTime(data.freq, noteStart)
           }
         }
       }
@@ -260,7 +294,7 @@ export class MidiPlayer{
 
     for(let i=0; i<cnt; i++){
       oscillator[i].start(startTime)
-      oscillator[i].stop(startTime + scheduleTime)
+      oscillator[i].stop(startTime + scheduleTime + 0.05)
     }
 
     // ノードを追跡リストに登録
@@ -274,6 +308,25 @@ export class MidiPlayer{
     }
 
     return { startTime, duration: scheduleTime }
+  }
+
+  /**
+   * オシレータタイプに応じた ADSR エンベロープパラメータを返す
+   * @param {string} oscType - オシレータタイプ
+   * @returns {{attack: number, decay: number, sustain: number, release: number}}
+   */
+  static _getEnvelope(oscType){
+    switch(oscType){
+      case 'sine':
+        return { attack: 0.05, decay: 0.1, sustain: 0.7, release: 0.15 }
+      case 'triangle':
+        return { attack: 0.04, decay: 0.08, sustain: 0.75, release: 0.12 }
+      case 'sawtooth':
+        return { attack: 0.01, decay: 0.1, sustain: 0.6, release: 0.1 }
+      case 'square':
+      default:
+        return { attack: 0.01, decay: 0.08, sustain: 0.65, release: 0.08 }
+    }
   }
 
   /**

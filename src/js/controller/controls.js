@@ -243,10 +243,43 @@ export class Controls{
     const left = (elapsed / total) * width
     this._timebar.set_bar_pos(left)
 
+    // 再生位置の自動スクロール
+    Controls._autoScroll(left)
+
     // キーボードハイライト更新
     Controls._updateKeyboardHighlight(elapsed / 1000)
 
     window.requestAnimationFrame(this.play_control.bind(this))
+  }
+
+  /**
+   * 再生位置がエディタの表示範囲外に出たら自動スクロールする
+   * @param {number} left - タイムバーのピクセル位置
+   */
+  static _autoScroll(left){
+    const editor = Element.elm_editor
+    if(!editor){ return }
+
+    const viewLeft  = editor.scrollLeft
+    const viewWidth = editor.clientWidth
+    const viewRight = viewLeft + viewWidth
+
+    // タイムバーが右端の80%を超えたら、タイムバーが左から30%の位置に来るようスクロール
+    if(left > viewRight - viewWidth * 0.2){
+      const newScroll = left - viewWidth * 0.3
+      editor.scrollLeft = Math.max(0, newScroll)
+      // タイムラインも同期
+      if(Element.elm_timeline){
+        Element.elm_timeline.scrollLeft = editor.scrollLeft
+      }
+    }
+    // タイムバーが左端より前に行った場合（ループ時など）
+    else if(left < viewLeft){
+      editor.scrollLeft = Math.max(0, left - viewWidth * 0.1)
+      if(Element.elm_timeline){
+        Element.elm_timeline.scrollLeft = editor.scrollLeft
+      }
+    }
   }
 
   /**
