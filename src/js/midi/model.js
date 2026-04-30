@@ -124,23 +124,29 @@ export class MidiModel{
 
   // --- モデル → MIDI文字列 ---
 
+  /**
+   * モデルの notes 配列から MIDI 文字列を生成する。
+   *
+   * ロジック:
+   * 1. notes を startTime でソートし、同時刻のノートをグループ化
+   * 2. グループ間にギャップがあれば休符を挿入
+   * 3. 各グループを単音 or 和音として出力
+   * 4. 元々モデルに含まれる rest/fade はそのまま出力
+   */
   static toString(){
     if(!_notes.length){return ''}
 
-    // left でソートしてコピー
-    const sorted = [..._notes].sort((a, b) => a.left - b.left)
+    // startTime でソート
+    const sorted = [..._notes].sort((a, b) => a.startTime - b.startTime || a.left - b.left)
 
-    // 同じ left + 同じ chordId の音符をグループ化
+    // 同時刻のノートをグループ化（startTime の差が 0.005秒未満なら同時）
     const groups = []
-    let prevLeft = -1
     for(const note of sorted){
-      // 同じ位置の音符は和音グループにまとめる
-      if(groups.length > 0 && Math.abs(note.left - prevLeft) < 1){
-        groups[groups.length - 1].push(note)
-      }
-      else{
+      const last = groups[groups.length - 1]
+      if(last && Math.abs(note.startTime - last[0].startTime) < 0.005){
+        last.push(note)
+      } else {
         groups.push([note])
-        prevLeft = note.left
       }
     }
 
@@ -148,36 +154,52 @@ export class MidiModel{
     let lastTempo = null
     let lastOctave = null
     let lastVolume = null
+    let currentTime = 0  // 現在の再生位置（秒）
 
     for(const group of groups){
       const first = group[0]
+      const groupStartTime = first.startTime
 
-      // テンポ変更
+      // --- ギャップ処理: 前のノート終了から今のノート開始までの隙間 ---
+      const gap = groupStartTime - currentTime
+      if(gap > 0.005){
+        const gapTempoVal = Math.round(60 / gap)
+        if(gapTempoVal > 0){
+          if(gapTempoVal !== lastTempo){
+            result += `T${gapTempoVal}`
+            lastTempo = gapTempoVal
+          }
+          result += 'S'
+        }
+      }
+
+      // --- テンポ出力 ---
       if(first.tempoVal !== lastTempo){
         result += `T${first.tempoVal}`
         lastTempo = first.tempoVal
       }
 
-      // 休符
+      // --- 休符 / フェードアウト ---
       if(first.type === 'rest'){
         result += 'S'
+        currentTime = first.startTime + first.tempo
         continue
       }
-      // フェードアウト
       if(first.type === 'fade'){
         result += '~'
+        currentTime = first.startTime + first.tempo
         continue
       }
 
-      // 音量変更
+      // --- 音量 ---
       if(first.volume !== lastVolume && first.volume !== 50){
         result += `V${first.volume}`
         lastVolume = first.volume
       }
 
-      // 音符（単音 or 和音）
+      // --- 音符出力 ---
       const noteGroup = group.filter(n => n.type === 'note')
-      if(noteGroup.length === 0){continue}
+      if(noteGroup.length === 0){ continue }
 
       if(noteGroup.length === 1){
         // 単音
@@ -187,16 +209,18 @@ export class MidiModel{
           lastOctave = n.octave
         }
         result += n.key.toUpperCase()
-      }
-      else{
+      } else {
         // 和音
         result += '['
         for(const n of noteGroup){
           result += `O${n.octave}${n.key.toUpperCase()}`
         }
         result += ']'
-        lastOctave = null // 和音後はオクターブ状態をリセット
+        lastOctave = null
       }
+
+      // 再生位置を更新
+      currentTime = first.startTime + first.tempo
     }
 
     return result
@@ -249,6 +273,29 @@ export class MidiModel{
     }
     _notes.push(note)
     return note
+  }
+
+  /**
+   * ノートをモデルから削除する
+   * - 単音: そのノートを削除
+   * - 和音の1音: その音だけ削除。残りが1音になったら chordId を外して単音化
+   * @param {string} id - ノートID
+   */
+  static removeNote(id){
+    const note = _notes.find(n => n.id === id)
+    if(!note){ return }
+
+    // ノートを削除
+    _notes = _notes.filter(n => n.id !== id)
+
+    // 和音グループだった場合、残りのメンバーを確認
+    if(note.chordId){
+      const remaining = _notes.filter(n => n.chordId === note.chordId)
+      if(remaining.length === 1){
+        // 1音だけ残ったら単音化（chordId を外す）
+        remaining[0].chordId = null
+      }
+    }
   }
 
   static getDefaultTempo(){

@@ -40,6 +40,13 @@ export class Editor{
     }
     Editor._click_note_handler = this.click_note.bind(this)
     window.addEventListener('mousedown', Editor._click_note_handler)
+
+    // Delete/Backspaceキーで選択中のノートを削除
+    if(Editor._keydown_handler){
+      window.removeEventListener('keydown', Editor._keydown_handler)
+    }
+    Editor._keydown_handler = this.keydown_delete.bind(this)
+    window.addEventListener('keydown', Editor._keydown_handler)
   }
 
   set_octave(){
@@ -201,6 +208,7 @@ export class Editor{
   mousemove_editor(e){
     if(!this._drag){return}
 
+    this._drag.moved = true
     const step = this._getSnapStep()
 
     if(this._drag.mode === 'place'){
@@ -272,13 +280,16 @@ export class Editor{
   mouseup_editor(e){
     if(!this._drag){return}
     const mode = this._drag.mode
+    const moved = this._drag.moved
     this._drag = null
     Element.elm_editor.classList.remove('dragging')
     // プレビュー音を止める（移動モード用）
     Editor._stopPreview()
-    // 全モード共通: モデルに同期
-    MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
-    Editor._syncTimeDisplay()
+    // 実際にドラッグ（移動/リサイズ/配置）が行われた場合のみモデルに同期
+    if(moved || mode === 'place'){
+      MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
+      Editor._syncTimeDisplay()
+    }
   }
 
   note_pos_adjust(num){
@@ -298,6 +309,32 @@ export class Editor{
     if(note && !note.classList.contains('layer-inactive')){
       note.setAttribute('data-status' , 'active')
     }
+  }
+
+  /**
+   * Delete/Backspaceキーで選択中のノートを削除する
+   */
+  keydown_delete(e){
+    if(e.key !== 'Delete' && e.key !== 'Backspace'){ return }
+    // テキスト入力中は無視
+    if(e.target.closest('input, textarea, select')){ return }
+
+    const activeNotes = Element.elm_editor.querySelectorAll(`.note[data-status='active']`)
+    if(!activeNotes.length){ return }
+
+    e.preventDefault()
+
+    for(const note of activeNotes){
+      const modelId = note.getAttribute('data-model-id')
+      if(modelId){
+        MidiModel.removeNote(modelId)
+      }
+      note.remove()
+    }
+
+    // モデルからMIDI文字列を再生成してtextareaに反映
+    MidiSerializer.syncToTextarea(Element.elm_editor, Element.elm_midi_string)
+    Editor._syncTimeDisplay()
   }
   clear_status_all_note(){
     const elms = Element.elm_editor.querySelectorAll(`.note[data-status='active']`)

@@ -136,8 +136,6 @@ export class LayerPanel {
       input.addEventListener('mousedown', (ev) => ev.stopPropagation())
       input.addEventListener('click', (ev) => ev.stopPropagation())
     })
-    name.addEventListener('mousedown', (e) => e.stopPropagation())
-    name.addEventListener('click', (e) => e.stopPropagation())
     row.appendChild(name)
 
     // オシレータタイプ選択
@@ -281,10 +279,12 @@ export class LayerPanel {
     })
     row.appendChild(deleteBtn)
 
-    // 行クリックでアクティブ切替
-    row.addEventListener('click', () => {
-      LayerModel.setActive(layer.id)
-    })
+    // 行クリックでアクティブ切替（captureフェーズで処理し、子要素のstopPropagationに影響されない）
+    row.addEventListener('mousedown', () => {
+      if (LayerModel.activeLayerId !== layer.id) {
+        LayerModel.setActive(layer.id)
+      }
+    }, true)
 
     return row
   }

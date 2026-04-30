@@ -146,6 +146,16 @@ export class LayerModel {
       solo: !!l.solo,
       visible: l.visible !== false,
     }))
+
+    // _nextId を復元データの最大値+1に設定（ID衝突を防ぐ）
+    for (const layer of _layers) {
+      const match = layer.id && layer.id.match(/layer_(\d+)/)
+      if (match) {
+        const num = parseInt(match[1]) + 1
+        if (num > _nextId) { _nextId = num }
+      }
+    }
+
     _activeLayerId = _layers[0].id
     LayerModel._notify()
   }

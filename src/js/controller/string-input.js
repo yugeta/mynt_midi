@@ -25,6 +25,13 @@ export class StringInput{
 
   async init(){
     this.set_event()
+
+    // アクティブレイヤーのmidiStringからMidiModelを初期化
+    const activeLayer = LayerModel.activeLayer
+    if(activeLayer && activeLayer.midiString){
+      MidiModel.fromString(activeLayer.midiString)
+    }
+
     this.renderAllLayers()
     scroll_middle()
 
