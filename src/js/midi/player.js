@@ -162,9 +162,9 @@ export class MidiPlayer{
   static _getPlayableLayers(layers){
     const hasSolo = layers.some(l => l.solo)
     if(hasSolo){
-      return layers.filter(l => l.solo && !l.mute && l.midiString)
+      return layers.filter(l => l.solo && !l.mute && l.visible !== false && l.midiString)
     }
-    return layers.filter(l => !l.mute && l.midiString)
+    return layers.filter(l => !l.mute && l.visible !== false && l.midiString)
   }
 
   /**
