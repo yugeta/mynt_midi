@@ -71,10 +71,15 @@ export class Controls{
   }
 
   /**
-   * Start: カーソル（タイムバー）を先頭（0秒位置）に戻す
+   * Start: カーソル（タイムバー）を先頭（0秒位置）に戻し、画面もスクロール
    */
   click_start(){
     this._timebar.set_bar_pos(0)
+    // 画面を先頭に合わせる（全スクロール要素を直接リセット）
+    requestAnimationFrame(() => {
+      Element.elm_editor.scrollLeft = 0
+      Element.elm_timeline.scrollLeft = 0
+    })
   }
 
   // MIDI文字列の実再生時間からTime入力欄を設定
@@ -266,19 +271,17 @@ export class Controls{
 
     // タイムバーが右端の80%を超えたら、タイムバーが左から30%の位置に来るようスクロール
     if(left > viewRight - viewWidth * 0.2){
-      const newScroll = left - viewWidth * 0.3
-      editor.scrollLeft = Math.max(0, newScroll)
-      // タイムラインも同期
-      if(Element.elm_timeline){
-        Element.elm_timeline.scrollLeft = editor.scrollLeft
-      }
+      const newScroll = Math.max(0, left - viewWidth * 0.3)
+      editor.scrollLeft = newScroll
+      if(Element.elm_timeline){ Element.elm_timeline.scrollLeft = newScroll }
+      if(Element.elm_timebar_area){ Element.elm_timebar_area.scrollLeft = newScroll }
     }
     // タイムバーが左端より前に行った場合（ループ時など）
     else if(left < viewLeft){
-      editor.scrollLeft = Math.max(0, left - viewWidth * 0.1)
-      if(Element.elm_timeline){
-        Element.elm_timeline.scrollLeft = editor.scrollLeft
-      }
+      const newScroll = Math.max(0, left - viewWidth * 0.1)
+      editor.scrollLeft = newScroll
+      if(Element.elm_timeline){ Element.elm_timeline.scrollLeft = newScroll }
+      if(Element.elm_timebar_area){ Element.elm_timebar_area.scrollLeft = newScroll }
     }
   }
 
