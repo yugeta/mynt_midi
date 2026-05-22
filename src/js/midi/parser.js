@@ -21,6 +21,11 @@ export class MidiParser{
     const reg = new RegExp(`(\\[(.+?)\\]|[A-G~STOV]+?)([0-9\+\-]*)`, 'gi')
 
     while ((res = reg.exec(str)) !== null) {
+      // ゼロ長マッチで無限ループを防止
+      if(res[0].length === 0){
+        reg.lastIndex++
+        continue
+      }
       if(!res[1]){continue}
       let mode  = res[1].toUpperCase()
       let value = res[3]
@@ -136,6 +141,11 @@ export class MidiParser{
     let res = null
 
     while((res = reg.exec(str)) !== null){
+      // ゼロ長マッチで無限ループを防止
+      if(res[0].length === 0){
+        reg.lastIndex++
+        continue
+      }
       if(!res[1]){ continue }
       let mode = res[1]
       let value = res[3]

@@ -14,6 +14,7 @@ import { Element }     from './ui/element.js'
 import { Menubar }     from './ui/menubar.js'
 import { UndoManager } from './controller/undo-manager.js'
 import { apply_timeline_width, apply_scale, sec2px } from './util/time.js'
+import { note_clear } from './util/position.js'
 
 class Main{
   constructor(){
@@ -85,6 +86,14 @@ class Main{
       LayerModel._notify()
     }
 
+    // メニューバーアクションのハンドリング
+    document.addEventListener('menubar-action', (e) => {
+      const action = e.detail && e.detail.action
+      if (action === 'new') {
+        this._handleNew()
+      }
+    })
+
     // Undo/Redo 初期化 + キーボードショートカット
     UndoManager.init()
     window.addEventListener('keydown', (e) => {
@@ -104,6 +113,39 @@ class Main{
         UndoManager.redo()
       }
     })
+  }
+  /**
+   * 新規作成: エディタ・モデル・レイヤーをすべてリセットする
+   */
+  _handleNew(){
+    // エディタのノートをクリア
+    note_clear()
+
+    // textareaをクリア
+    if(Element.elm_midi_string){
+      Element.elm_midi_string.value = ''
+    }
+
+    // MidiModelをリセット
+    MidiModel.fromString('')
+
+    // LayerModelをデフォルト状態にリセット（コールバックは維持してUIを再描画）
+    LayerModel.reset('', 'square')
+
+    // Time入力欄をデフォルトに戻す
+    if(Element.elm_time){
+      Element.elm_time.value = 1
+      apply_timeline_width(1)
+    }
+
+    // タイムラインを再描画
+    new Timeline().init()
+
+    // localStorageの保存データもクリア
+    LayerModel._saveToStorage()
+
+    // Undo履歴をリセット
+    UndoManager.init()
   }
 }
 

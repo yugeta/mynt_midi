@@ -2,7 +2,12 @@
  * レイヤーデータモデル
  *
  * 複数レイヤーのメタデータを一元管理する。
- * 既存の MidiModel と同じパターン（モジュールスコープ変数 + static メソッド）で実装。
+ * モジュールスコープ変数 + static メソッドによるシングルトンパターン。
+ *
+ * イベント管理:
+ *   - init()  : アプリ起動時に1回だけ呼ぶ（コールバック初期化含む）
+ *   - reset() : ユーザー操作でデータをリセット（コールバックは維持）
+ *   - onChange() / offChange() : リスナーの登録・解除
  *
  * データフロー:
  *   LayerPanel UI → LayerModel → textarea / MidiModel / MidiPlayer
@@ -42,12 +47,28 @@ export class LayerModel {
     return _activeLayerId
   }
 
-  // --- 初期化 ---
+  // --- 初期化（アプリ起動時に1回だけ呼ぶ） ---
 
   static init(midiString, oscillatorType) {
     _layers = []
     _nextId = 0
     _callbacks = []
+
+    const osc = VALID_OSCILLATOR_TYPES.includes(oscillatorType)
+      ? oscillatorType
+      : "square"
+
+    const layer = LayerModel._createLayer(midiString || "", osc)
+    _layers.push(layer)
+    _activeLayerId = layer.id
+    // init時は通知しない（まだリスナーが登録されていないため）
+  }
+
+  // --- リセット（ユーザー操作用、コールバックは維持） ---
+
+  static reset(midiString, oscillatorType) {
+    _layers = []
+    _nextId = 0
 
     const osc = VALID_OSCILLATOR_TYPES.includes(oscillatorType)
       ? oscillatorType
@@ -114,9 +135,25 @@ export class LayerModel {
 
   // --- イベント通知 ---
 
+  /**
+   * 変更リスナーを登録する
+   * @param {Function} callback
+   */
   static onChange(callback) {
-    if (typeof callback === "function") {
-      _callbacks.push(callback)
+    if (typeof callback !== "function") { return }
+    // 重複登録を防止
+    if (_callbacks.includes(callback)) { return }
+    _callbacks.push(callback)
+  }
+
+  /**
+   * 変更リスナーを解除する
+   * @param {Function} callback
+   */
+  static offChange(callback) {
+    const idx = _callbacks.indexOf(callback)
+    if (idx !== -1) {
+      _callbacks.splice(idx, 1)
     }
   }
 
@@ -133,12 +170,12 @@ export class LayerModel {
     if (!data || !Array.isArray(data.layers) || data.layers.length === 0) {
       return
     }
-    _layers = data.layers.map(l => ({
+    _layers = data.layers.map((l, index) => ({
       id: l.id || `layer_${_nextId++}`,
       name: l.name || "Layer",
       oscillatorType: VALID_OSCILLATOR_TYPES.includes(l.oscillatorType)
         ? l.oscillatorType : "square",
-      color: l.color || LAYER_COLORS[0],
+      color: l.color || LAYER_COLORS[index % LAYER_COLORS.length],
       midiString: l.midiString || "",
       notesData: l.notesData || null,
       volume: Math.max(0, Math.min(100, Number(l.volume) || 50)),

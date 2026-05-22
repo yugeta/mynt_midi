@@ -21,7 +21,8 @@ export class LayerPanel {
     this._buildPanel()
     this._insertPanel()
     this.render()
-    LayerModel.onChange(() => this.render())
+    this._onChangeHandler = () => this.render()
+    LayerModel.onChange(this._onChangeHandler)
   }
 
   // --- DOM生成 ---

@@ -38,7 +38,8 @@ export class StringInput{
 
     // LayerModel変更時にtextareaを同期
     _lastActiveLayerId = LayerModel.activeLayerId
-    LayerModel.onChange(() => this._onLayerChange())
+    this._onLayerChangeHandler = () => this._onLayerChange()
+    LayerModel.onChange(this._onLayerChangeHandler)
   }
 
   set_event(){
@@ -53,6 +54,8 @@ export class StringInput{
     if(activeLayer){
       activeLayer.midiString = Element.elm_midi_string.value
     }
+    // モデルを再パースして内部データを更新
+    MidiModel.fromString(Element.elm_midi_string.value)
     note_clear()
     this.renderAllLayers()
     StringInput._syncTimeDisplay()
