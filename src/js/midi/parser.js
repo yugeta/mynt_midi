@@ -113,6 +113,7 @@ export class MidiParser{
   }
 
   static tdur(tempo, length){
+    if(!tempo || tempo <= 0){ tempo = 1 }
     return (60 / tempo) * (4 / length)
   }
 

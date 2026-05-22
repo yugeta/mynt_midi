@@ -159,7 +159,9 @@ export class JsonConverter {
   static durationToTempo(duration, bpm) {
     // 数値ならミリ秒直指定
     if (typeof duration === 'number') {
-      return Math.round(60000 / duration)
+      const tVal = Math.round(60000 / duration)
+      // T=0は無効値（パーサーで除算エラーになる）ため最小1を保証
+      return Math.max(1, tVal)
     }
 
     const dotted = duration.endsWith('.')
@@ -171,7 +173,7 @@ export class JsonConverter {
     if (triplet) { tVal = bpm * (num / 4) * 1.5 }
     if (dotted) { tVal = tVal / 1.5 }
 
-    return Math.round(tVal)
+    return Math.max(1, Math.round(tVal))
   }
 
   /** T値 → 最も近いduration文字列 */
