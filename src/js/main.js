@@ -141,6 +141,13 @@ class Main{
     // タイムラインを再描画
     new Timeline().init()
 
+    // スクロールを基準位置（先頭）に戻す
+    if(Element.elm_editor){ Element.elm_editor.scrollLeft = 0 }
+    if(Element.elm_timeline){ Element.elm_timeline.scrollLeft = 0 }
+    if(Element.elm_keyboard){ Element.elm_keyboard.scrollTop = 0 }
+    const timebarArea = document.querySelector('.timebar-area')
+    if(timebarArea){ timebarArea.scrollLeft = 0 }
+
     // localStorageの保存データもクリア
     LayerModel._saveToStorage()
 
