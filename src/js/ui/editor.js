@@ -101,6 +101,11 @@ export class Editor{
         Element.elm_editor.classList.add('dragging')
       } else {
         // 移動モード
+        const soloMove = e.altKey  // Alt+ドラッグ: 和音から切り離して単独移動
+
+        // 和音グループを収集（同じ開始位置のノート群）
+        const chordNotes = soloMove ? [] : this._getChordGroup(note)
+
         this._drag = {
           mode: 'move',
           elm: note,
@@ -108,6 +113,10 @@ export class Editor{
           mouseY: e.pageY,
           left: note.offsetLeft,
           top: note.offsetTop,
+          origWidth: note.offsetWidth,
+          soloMove: soloMove,
+          chordNotes: chordNotes,  // 一括移動する他のノート
+          chordOrigPositions: chordNotes.map(n => ({ elm: n, left: n.offsetLeft })),
         }
         Element.elm_editor.classList.add('dragging')
         const key = note.getAttribute('data-key')
@@ -138,16 +147,22 @@ export class Editor{
     const initWidth = Math.max(step, Math.ceil((rawX - left) / step) * step)
 
     const modelNote = MidiModel.addNote(octave, key, left)
-    this.put_note_editor(pos.y, left, key_type, octave, key, modelNote.id, initWidth)
+
+    // 同じ時間帯に既存ノートがある場合、和音として開始位置と幅を揃える
+    const overlap = this._findOverlappingNote(left, initWidth, null)
+    const finalLeft = overlap ? overlap.left : left
+    const finalWidth = overlap ? overlap.width : initWidth
+
+    this.put_note_editor(pos.y, finalLeft, key_type, octave, key, modelNote.id, finalWidth)
     // 仮配置のDOM要素を取得
     const placedNote = Element.elm_editor.querySelector(`.note[data-model-id='${modelNote.id}']`)
 
     this._drag = {
       mode: 'place',
       elm: placedNote,
-      anchorLeft: left,
+      anchorLeft: finalLeft,
       startX: e.pageX,
-      initWidth: initWidth,
+      initWidth: finalWidth,
       modelId: modelNote.id,
     }
     Element.elm_editor.classList.add('dragging')
@@ -217,23 +232,67 @@ export class Editor{
       const dx = e.pageX - this._drag.startX
       const rawWidth = this._drag.initWidth + Math.max(0, dx)
       const snappedWidth = Math.max(step, Math.round(rawWidth / step) * step)
-      this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+
+      // Alt押下時は和音スナップを無効化（自由サイズ変更）
+      if(e.altKey){
+        this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+      } else {
+        // 和音スナップ: 重なるノートがあればその開始位置と幅に合わせる
+        const noteLeft = this._drag.elm.offsetLeft
+        const overlap = this._findOverlappingNote(noteLeft, snappedWidth, this._drag.elm)
+        if(overlap){
+          this._drag.elm.style.setProperty('left', `${overlap.left}px`, '')
+          this._drag.elm.style.setProperty('width', `${overlap.width}px`, '')
+        } else {
+          this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+        }
+      }
     }
     else if(this._drag.mode === 'resize'){
       // リサイズ: 右端をドラッグ
       const dx = e.pageX - this._drag.startX
       const rawWidth = this._drag.origWidth + dx
       const snappedWidth = Math.max(step, Math.round(rawWidth / step) * step)
-      this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+
+      // Alt押下時は和音スナップを無効化（自由サイズ変更）
+      if(e.altKey){
+        this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+      } else {
+        // 和音スナップ: 重なるノートがあればその開始位置と幅に合わせる
+        const noteLeft = this._drag.elm.offsetLeft
+        const overlap = this._findOverlappingNote(noteLeft, snappedWidth, this._drag.elm)
+        if(overlap){
+          this._drag.elm.style.setProperty('left', `${overlap.left}px`, '')
+          this._drag.elm.style.setProperty('width', `${overlap.width}px`, '')
+        } else {
+          this._drag.elm.style.setProperty('width', `${snappedWidth}px`, '')
+        }
+      }
     }
     else if(this._drag.mode === 'move'){
       // 移動: 横方向
       let left = this._drag.left - (this._drag.mouseX - e.pageX)
       left = this.note_pos_adjust(left)
       if(left < 0){ left = 0 }
-      this._drag.elm.style.setProperty('left', `${left}px`, '')
 
-      // 縦方向: マウス位置から最も近いキー行にスナップ
+      if(this._drag.soloMove){
+        // Alt+ドラッグ: 単独で自由移動（和音スナップなし）
+        this._drag.elm.style.setProperty('left', `${left}px`, '')
+        // 元の幅に戻す
+        this._drag.elm.style.setProperty('width', `${this._drag.origWidth}px`, '')
+      } else {
+        // 通常ドラッグ: 和音グループごと一括移動
+        const dx = left - this._drag.left
+        this._drag.elm.style.setProperty('left', `${left}px`, '')
+
+        // 和音グループの他のノートも同じ量だけ移動
+        for(const pos of this._drag.chordOrigPositions){
+          const newLeft = pos.left + dx
+          pos.elm.style.setProperty('left', `${Math.max(0, newLeft)}px`, '')
+        }
+      }
+
+      // 縦方向: マウス位置から最も近いキー行にスナップ（メインノートのみ）
       const editor_rect = Element.elm_editor.getBoundingClientRect()
       const mouseY_in_editor = e.pageY - editor_rect.top + Element.elm_editor.scrollTop
       const key_row = this.find_key_row_at(mouseY_in_editor)
@@ -302,6 +361,70 @@ export class Editor{
   /** スナップのグリッド幅(px)を返す */
   _getSnapStep(){
     return get_msec() / get_msec_step()
+  }
+
+  /**
+   * 指定ノートと同じ開始位置にある他のノートを返す（和音グループ）
+   * @param {HTMLElement} noteElm - 基準ノート
+   * @returns {Array<HTMLElement>} 同じ位置の他のノート（基準ノート自身は含まない）
+   */
+  _getChordGroup(noteElm){
+    const left = parseFloat(noteElm.style.left) || noteElm.offsetLeft
+    const threshold = 4
+    const notes = Element.elm_editor.querySelectorAll('.note:not(.layer-inactive)')
+    const group = []
+    for(const note of notes){
+      if(note === noteElm){ continue }
+      const noteLeft = parseFloat(note.style.left) || note.offsetLeft
+      if(Math.abs(noteLeft - left) <= threshold){
+        group.push(note)
+      }
+    }
+    return group
+  }
+
+  /**
+   * 指定ノートと同じ開始位置にある他のノートがあればその幅を返す（配置時の初期幅揃え用）
+   * @param {number} left - スナップ済みの左端位置(px)
+   * @returns {number} 既存ノートの幅。なければ 0
+   */
+  _getExistingNoteWidth(left){
+    const notes = Element.elm_editor.querySelectorAll('.note:not(.layer-inactive)')
+    const threshold = 2
+    for(const note of notes){
+      if(Math.abs(note.offsetLeft - left) <= threshold){
+        return note.offsetWidth
+      }
+    }
+    return 0
+  }
+
+  /**
+   * 時間的に重なるノートを探し、そのノートの左端と幅を返す（和音スナップ用）
+   * 「重なる」= 2つのノートの時間範囲が少しでもオーバーラップする
+   *
+   * @param {number} noteLeft - 対象ノートの左端(px)
+   * @param {number} noteWidth - 対象ノートの幅(px)
+   * @param {HTMLElement} excludeElm - 自分自身（除外）
+   * @returns {{left: number, width: number}|null} 重なるノートの位置と幅。なければ null
+   */
+  _findOverlappingNote(noteLeft, noteWidth, excludeElm){
+    const noteRight = noteLeft + noteWidth
+    const notes = Element.elm_editor.querySelectorAll('.note:not(.layer-inactive)')
+    const threshold = 2
+
+    for(const note of notes){
+      if(note === excludeElm){ continue }
+
+      const existLeft = note.offsetLeft
+      const existRight = existLeft + note.offsetWidth
+
+      // 時間的に重なるか判定（少しでもオーバーラップ）
+      if(noteLeft < existRight - threshold && noteRight > existLeft + threshold){
+        return { left: existLeft, width: note.offsetWidth }
+      }
+    }
+    return null
   }
 
   click_note(e){

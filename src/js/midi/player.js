@@ -167,7 +167,25 @@ export class MidiPlayer{
           maxDuration = result.duration + layerOffset
         }
       } else if(layer.midiString){
-        // 軽量モード: MIDI文字列をパースして再生
+        // 軽量モード: モデルデータがあれば直接スケジュール（音の途切れを防止）
+        // なければMIDI文字列をパースして再生
+        const snapshot = layer.notesData
+        if(snapshot && snapshot.length){
+          // notesData → noteEvents形式に変換して直接スケジュール
+          const events = MidiPlayer._snapshotToEvents(snapshot)
+          if(events.length){
+            const result = MidiPlayer._scheduleFromEvents(events, {
+              oscillatorType: layer.oscillatorType || 'square',
+              volume: layer.volume,
+              offsetSec: offsetSec - layerOffset,
+            })
+            if(result && result.duration > maxDuration){
+              maxDuration = result.duration + layerOffset
+            }
+            continue
+          }
+        }
+        // フォールバック: MIDI文字列からパース再生
         const datas = MidiParser.get_code(layer.midiString)
         if(!datas || !datas.length){ continue }
         const result = MidiPlayer._schedule(datas, {
@@ -408,6 +426,33 @@ export class MidiPlayer{
     }
 
     return { startTime, duration: maxEndTime }
+  }
+
+  /**
+   * notesData（モデルスナップショット）を noteEvents 形式に変換する
+   * 各ノートを独立したイベントとして扱うため、重なりがあっても途切れない
+   * @param {Array} snapshot - MidiModel.saveSnapshot() の結果
+   * @returns {Array} [{time, duration, midi, velocity}, ...]
+   */
+  static _snapshotToEvents(snapshot){
+    const events = []
+    for(const note of snapshot){
+      if(note.type !== 'note'){ continue }
+      if(note.octave === null || note.key === null){ continue }
+
+      // 音名 → MIDIノート番号
+      const semitone = MidiPlayer._NOTE_MAP[note.key.toUpperCase()]
+      if(semitone == null){ continue }
+
+      const midi = (Number(note.octave) * 12) + semitone
+      events.push({
+        time: note.startTime,
+        duration: note.tempo,
+        midi: midi,
+        velocity: Math.round((note.volume || 50) / 100 * 127),
+      })
+    }
+    return events
   }
 
   /**
