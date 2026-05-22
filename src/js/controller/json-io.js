@@ -285,8 +285,8 @@ export class JsonIO {
   _addLayersFromImport(layerData) {
     if (!layerData || !layerData.layers || !layerData.layers.length) { return }
 
+    // addLayers → _notify → _onLayerChange で note_clear + renderAllLayers が自動実行される
     LayerModel.addLayers(layerData.layers)
-    note_clear()
 
     const active = LayerModel.activeLayer
     if (active && Element.elm_midi_string) {
