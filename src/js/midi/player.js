@@ -48,6 +48,12 @@ export class MidiPlayer{
       for(const g of nodes.gains){
         try{ g.gain.cancelScheduledValues(now); g.gain.setValueAtTime(0, now) }catch(e){}
       }
+      if(nodes.masterGain){
+        try{ nodes.masterGain.disconnect() }catch(e){}
+      }
+      if(nodes.compressor){
+        try{ nodes.compressor.disconnect() }catch(e){}
+      }
     }
     MidiPlayer._activeNodes = []
   }
@@ -363,6 +369,20 @@ export class MidiPlayer{
     const offsetSec = options.offsetSec || 0
     const env = MidiPlayer._getEnvelope(oscType)
 
+    // DynamicsCompressor → 音量の自動正規化（クリッピング防止）
+    const compressor = ctx.createDynamicsCompressor()
+    compressor.threshold.setValueAtTime(-10, startTime)
+    compressor.knee.setValueAtTime(10, startTime)
+    compressor.ratio.setValueAtTime(12, startTime)
+    compressor.attack.setValueAtTime(0.003, startTime)
+    compressor.release.setValueAtTime(0.1, startTime)
+    compressor.connect(ctx.destination)
+
+    // マスターゲイン
+    const masterGain = ctx.createGain()
+    masterGain.gain.setValueAtTime(masterVol, startTime)
+    masterGain.connect(compressor)
+
     const oscillators = []
     const gains = []
     let maxEndTime = 0
@@ -380,7 +400,7 @@ export class MidiPlayer{
 
       const freq = 440 * Math.pow(2, (event.midi - 69) / 12)
       const vel = (event.velocity != null ? event.velocity : 64) / 127
-      const vol = vel * masterVol * 0.05  // 0.05 はベース音量スケール
+      const vol = vel * 0.12
 
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -401,7 +421,7 @@ export class MidiPlayer{
       gain.gain.linearRampToValueAtTime(0, t0 + schedDur)
 
       osc.connect(gain)
-      gain.connect(ctx.destination)
+      gain.connect(masterGain)
       osc.start(t0)
       osc.stop(t0 + schedDur + 0.01)
 
@@ -412,17 +432,21 @@ export class MidiPlayer{
     }
 
     if(!oscillators.length){
+      masterGain.disconnect()
+      compressor.disconnect()
       return { startTime, duration: 0 }
     }
 
     // ノードを追跡リストに登録
-    const nodeEntry = { oscillators, gains }
+    const nodeEntry = { oscillators, gains, masterGain, compressor }
     MidiPlayer._activeNodes.push(nodeEntry)
 
     // 最後のオシレーター終了時にクリーンアップ
     oscillators[oscillators.length - 1].onended = () => {
       const idx = MidiPlayer._activeNodes.indexOf(nodeEntry)
       if(idx !== -1){ MidiPlayer._activeNodes.splice(idx, 1) }
+      masterGain.disconnect()
+      compressor.disconnect()
     }
 
     return { startTime, duration: maxEndTime }
