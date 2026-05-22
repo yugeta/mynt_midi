@@ -30,7 +30,7 @@ export class Menubar {
 
     // ドロップダウン項目のクリック
     this.menubar.addEventListener('click', e => {
-      const li = e.target.closest('.menu-dropdown li')
+      const li = e.target.closest('li[data-action]')
       if (!li || li.classList.contains('menu-separator')) return
       const action = li.dataset.action
       if (action) {

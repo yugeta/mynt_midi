@@ -332,6 +332,7 @@ export class MidiPlayer{
   /**
    * noteEvents を Web Audio API で直接スケジュールする（MIDIモード用）
    * T値変換を経由しないため精度劣化なし。
+   * 各ノートに個別の OscillatorNode + GainNode を割り当てる。
    *
    * @param {Array} events - [{time, duration, midi, velocity}, ...]
    * @param {object} options - { oscillatorType, volume, offsetSec, loop }
@@ -344,10 +345,6 @@ export class MidiPlayer{
     const offsetSec = options.offsetSec || 0
     const env = MidiPlayer._getEnvelope(oscType)
 
-    // 同時発音数の上限（CPU負荷対策）
-    const MAX_POLYPHONY = 16
-    let activeCount = 0
-
     const oscillators = []
     const gains = []
     let maxEndTime = 0
@@ -358,9 +355,6 @@ export class MidiPlayer{
 
       // オフセットより前のノートはスキップ
       if(noteEnd <= 0){ continue }
-
-      // 同時発音数制限
-      if(activeCount >= MAX_POLYPHONY){ continue }
 
       const schedStart = Math.max(0, noteStart)
       const schedDur = noteEnd - schedStart
@@ -395,12 +389,8 @@ export class MidiPlayer{
 
       oscillators.push(osc)
       gains.push(gain)
-      activeCount++
 
       if(noteEnd > maxEndTime){ maxEndTime = noteEnd }
-
-      // ノード終了時にカウントを減らす
-      osc.onended = () => { activeCount-- }
     }
 
     if(!oscillators.length){
@@ -413,7 +403,6 @@ export class MidiPlayer{
 
     // 最後のオシレーター終了時にクリーンアップ
     oscillators[oscillators.length - 1].onended = () => {
-      activeCount--
       const idx = MidiPlayer._activeNodes.indexOf(nodeEntry)
       if(idx !== -1){ MidiPlayer._activeNodes.splice(idx, 1) }
     }

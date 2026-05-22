@@ -94,6 +94,37 @@ export class LayerModel {
     return layer
   }
 
+  /**
+   * 複数レイヤーを既存データに追加する（インポート用）
+   * @param {Array} newLayers - 追加するレイヤーデータの配列
+   */
+  static addLayers(newLayers) {
+    if (!Array.isArray(newLayers) || newLayers.length === 0) { return }
+
+    for (const l of newLayers) {
+      const layer = {
+        id: `layer_${_nextId++}`,
+        name: l.name || "Layer",
+        mode: VALID_MODES.includes(l.mode) ? l.mode : "string",
+        oscillatorType: VALID_OSCILLATOR_TYPES.includes(l.oscillatorType)
+          ? l.oscillatorType : "square",
+        color: l.color || LAYER_COLORS[(_nextId - 1) % LAYER_COLORS.length],
+        midiString: l.midiString || "",
+        noteEvents: Array.isArray(l.noteEvents) ? l.noteEvents : null,
+        notesData: null,
+        offset: Number(l.offset) || 0,
+        loop: !!l.loop,
+        volume: Math.max(0, Math.min(100, Number(l.volume) || 50)),
+        mute: !!l.mute,
+        solo: !!l.solo,
+        visible: l.visible !== false,
+      }
+      _layers.push(layer)
+    }
+
+    LayerModel._notify()
+  }
+
   static removeLayer(id) {
     if (_layers.length <= 1) {
       return false

@@ -31,7 +31,8 @@
   gap: 6px;
 }
 .json-import-btn,
-.json-export-btn{
+.json-export-btn,
+.midi-import-btn{
   padding: 3px 10px;
   font-size: 11px;
   cursor: pointer;
@@ -42,7 +43,8 @@
   transition: opacity 0.2s;
 }
 .json-import-btn:hover,
-.json-export-btn:hover{
+.json-export-btn:hover,
+.midi-import-btn:hover{
   opacity: 0.7;
 }
 textarea[name='midi-string']{

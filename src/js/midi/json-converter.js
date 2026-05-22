@@ -230,22 +230,44 @@ export class JsonConverter {
   // =========================================
 
   /** 全レイヤーデータ → JSON文字列 */
-  static exportLayers(layers) {
-    return JSON.stringify({
-      format_version: "2.0",
-      layers: layers.map(l => ({
-        id: l.id,
-        name: l.name,
-        oscillatorType: l.oscillatorType,
-        color: l.color,
-        volume: l.volume,
-        mute: l.mute,
-        solo: l.solo,
-        visible: l.visible,
-        bpm: 120,
-        notes: JSON.parse(JsonConverter.toJson(l.midiString)).notes
-      }))
-    }, null, 2)
+  static exportLayers(layers, sceneOptions) {
+    const opts = sceneOptions || {}
+    const output = {
+      format_version: "3.0",
+      name: opts.name || "名称未設定",
+      scene: {
+        time: opts.time || 1,
+        scale: opts.scale || 100,
+        scrollLeft: opts.scrollLeft || 0,
+        scrollTop: opts.scrollTop || 0,
+      },
+      layers: layers.map(l => {
+        const base = {
+          id: l.id,
+          name: l.name,
+          mode: l.mode || 'string',
+          oscillatorType: l.oscillatorType,
+          color: l.color,
+          volume: l.volume,
+          mute: l.mute,
+          solo: l.solo,
+          visible: l.visible,
+          offset: l.offset || 0,
+          loop: !!l.loop,
+        }
+
+        if (l.mode === 'midi' && Array.isArray(l.noteEvents) && l.noteEvents.length) {
+          base.noteEvents = l.noteEvents
+        } else {
+          base.midiString = l.midiString || ''
+          base.bpm = 120
+          base.notes = JSON.parse(JsonConverter.toJson(l.midiString || '')).notes
+        }
+
+        return base
+      })
+    }
+    return JSON.stringify(output, null, 2)
   }
 
   /** JSON文字列 → LayerModel用データ */

@@ -52,8 +52,15 @@ class Main{
 
     await new LayerPanel().init()
     await new StringInput().init()
-    await new JsonIO().init()
+    this._jsonIO = new JsonIO()
+    await this._jsonIO.init()
     await new SvgImport().init()
+
+    // シーン名を復元
+    const savedSceneName = localStorage.getItem('mynt_scene_name')
+    if (savedSceneName) {
+      Main.setSceneName(savedSceneName)
+    }
 
     // スケールスライダーの値を復元（change_scaleと同等の処理をフルで実行）
     const savedScale = localStorage.getItem('mynt_scale')
@@ -92,7 +99,25 @@ class Main{
       if (action === 'new') {
         this._handleNew()
       }
+      else if (action === 'open') {
+        this._jsonIO && this._jsonIO.openFile()
+      }
+      else if (action === 'save') {
+        this._jsonIO && this._jsonIO.saveFile()
+      }
+      else if (action === 'import-json') {
+        this._jsonIO && this._jsonIO.importJsonFile()
+      }
+      else if (action === 'import-midi') {
+        this._jsonIO && this._jsonIO.importMidiFile()
+      }
     })
+
+    // シーン名クリックで編集モーダル
+    const sceneNameEl = document.querySelector('.scene-name')
+    if (sceneNameEl) {
+      sceneNameEl.addEventListener('click', () => this._showSceneNameModal())
+    }
 
     // Undo/Redo 初期化 + キーボードショートカット
     UndoManager.init()
@@ -118,41 +143,110 @@ class Main{
    * 新規作成: エディタ・モデル・レイヤーをすべてリセットする
    */
   _handleNew(){
-    // エディタのノートをクリア
-    note_clear()
+    // シーン名入力モーダルを表示（デフォルトは常に「名称未設定」）
+    this._showSceneNameModal((name) => {
+      // エディタのノートをクリア
+      note_clear()
 
-    // textareaをクリア
-    if(Element.elm_midi_string){
-      Element.elm_midi_string.value = ''
+      // textareaをクリア
+      if(Element.elm_midi_string){
+        Element.elm_midi_string.value = ''
+      }
+
+      // MidiModelをリセット
+      MidiModel.fromString('')
+
+      // LayerModelをデフォルト状態にリセット（コールバックは維持してUIを再描画）
+      LayerModel.reset('', 'square')
+
+      // Time入力欄をデフォルトに戻す
+      if(Element.elm_time){
+        Element.elm_time.value = 1
+        apply_timeline_width(1)
+      }
+
+      // タイムラインを再描画
+      new Timeline().init()
+
+      // スクロールを基準位置（先頭）に戻す
+      if(Element.elm_editor){ Element.elm_editor.scrollLeft = 0 }
+      if(Element.elm_timeline){ Element.elm_timeline.scrollLeft = 0 }
+      if(Element.elm_keyboard){ Element.elm_keyboard.scrollTop = 0 }
+      const timebarArea = document.querySelector('.timebar-area')
+      if(timebarArea){ timebarArea.scrollLeft = 0 }
+
+      // シーン名を設定
+      Main.setSceneName(name)
+
+      // localStorageの保存データもクリア
+      LayerModel._saveToStorage()
+
+      // Undo履歴をリセット
+      UndoManager.init()
+    }, '名称未設定')
+  }
+
+  /**
+   * シーン名入力モーダルを表示する
+   * @param {Function} [onConfirm] - 確定時のコールバック（名前を引数で受け取る）。省略時は名前変更のみ
+   * @param {string} [defaultName] - 入力欄の初期値。省略時は現在のシーン名
+   */
+  _showSceneNameModal(onConfirm, defaultName){
+    const initialName = defaultName !== undefined ? defaultName : Main.getSceneName()
+
+    // シンプルなモーダルを動的生成
+    const overlay = document.createElement('div')
+    overlay.className = 'scene-name-modal-overlay'
+    overlay.innerHTML = `
+      <div class="scene-name-modal">
+        <div class="scene-name-modal-title">シーン名</div>
+        <input type="text" class="scene-name-modal-input" value="${initialName}" />
+        <div class="scene-name-modal-actions">
+          <button class="scene-name-modal-ok">OK</button>
+          <button class="scene-name-modal-cancel">キャンセル</button>
+        </div>
+      </div>
+    `
+    document.body.appendChild(overlay)
+
+    const input = overlay.querySelector('.scene-name-modal-input')
+    input.focus()
+    input.select()
+
+    const confirm = () => {
+      const name = input.value.trim() || '名称未設定'
+      Main.setSceneName(name)
+      overlay.remove()
+      if (onConfirm) { onConfirm(name) }
     }
 
-    // MidiModelをリセット
-    MidiModel.fromString('')
-
-    // LayerModelをデフォルト状態にリセット（コールバックは維持してUIを再描画）
-    LayerModel.reset('', 'square')
-
-    // Time入力欄をデフォルトに戻す
-    if(Element.elm_time){
-      Element.elm_time.value = 1
-      apply_timeline_width(1)
+    const cancel = () => {
+      overlay.remove()
     }
 
-    // タイムラインを再描画
-    new Timeline().init()
+    overlay.querySelector('.scene-name-modal-ok').addEventListener('click', confirm)
+    overlay.querySelector('.scene-name-modal-cancel').addEventListener('click', cancel)
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { confirm() }
+      if (e.key === 'Escape') { cancel() }
+    })
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { cancel() }
+    })
+  }
 
-    // スクロールを基準位置（先頭）に戻す
-    if(Element.elm_editor){ Element.elm_editor.scrollLeft = 0 }
-    if(Element.elm_timeline){ Element.elm_timeline.scrollLeft = 0 }
-    if(Element.elm_keyboard){ Element.elm_keyboard.scrollTop = 0 }
-    const timebarArea = document.querySelector('.timebar-area')
-    if(timebarArea){ timebarArea.scrollLeft = 0 }
+  // --- シーン名管理 ---
 
-    // localStorageの保存データもクリア
-    LayerModel._saveToStorage()
+  static getSceneName(){
+    const el = document.querySelector('.scene-name')
+    return el ? el.textContent : '名称未設定'
+  }
 
-    // Undo履歴をリセット
-    UndoManager.init()
+  static setSceneName(name){
+    const el = document.querySelector('.scene-name')
+    if (el) { el.textContent = name || '名称未設定' }
+    // localStorageにも保存
+    try { localStorage.setItem('mynt_scene_name', name || '名称未設定') } catch(e){}
   }
 }
 

@@ -18,13 +18,17 @@
       <span class="menu-label">ファイル</span>
       <ul class="menu-dropdown">
         <li data-action="new">新規作成</li>
+        <li class="menu-separator"></li>
         <li data-action="open">開く</li>
-        <li class="menu-separator"></li>
         <li data-action="save">保存</li>
-        <li data-action="save-as">名前を付けて保存</li>
         <li class="menu-separator"></li>
-        <li data-action="json-import">JSON インポート</li>
-        <li data-action="json-export">JSON エクスポート</li>
+        <li class="menu-submenu" data-submenu="import">
+          インポート ▸
+          <ul class="menu-dropdown-sub">
+            <li data-action="import-json">JSON</li>
+            <li data-action="import-midi">MIDI ファイル</li>
+          </ul>
+        </li>
       </ul>
     </div>
     <div class="menu-item" data-menu="layer">
@@ -47,6 +51,7 @@
         <li data-action="docs">ドキュメント</li>
       </ul>
     </div>
+    <span class="scene-name" title="クリックでシーン名を編集">名称未設定</span>
     <span class="menubar-title">MYNT MIDI</span>
   </nav>
 
@@ -56,9 +61,7 @@
       <div class='midi-string-header'>
         <span class='midi-string-title'>Midi Code</span>
         <div class='midi-string-toolbar'>
-          <button class='json-import-btn' title='JSON Import'>&#x2B07; Import</button>
-          <button class='json-export-btn' title='JSON Export'>&#x2B06; Export</button>
-          <button class='midi-import-btn' title='MIDI File Import'>&#x1F3B5; MIDI</button>
+          <button class='json-import-btn' title='JSON Import（コピペ）'>&#x2B07; Import</button>
         </div>
       </div>
       <textarea name='midi-string'></textarea>

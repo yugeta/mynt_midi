@@ -1,8 +1,14 @@
 /**
  * JSON Import/Export コントローラー
  *
- * - Import: モーダルにJSON貼り付け → MIDI文字列に変換 → textareaに反映
- * - Export: 現在のMIDI文字列 → JSON変換 → モーダルに表示
+ * メニュー操作:
+ *   - 開く: JSONファイルを読み込み → シーン全体を置き換え
+ *   - 保存: 現在のシーン全体をJSONファイルとして保存
+ *   - インポート > JSON: JSONファイルを読み込み → レイヤーを追加
+ *   - インポート > MIDI: .midファイルを読み込み → レイヤーを追加
+ *
+ * ツールバーボタン:
+ *   - Import: JSONコピペ用モーダル → レイヤーを追加
  */
 
 import { JsonConverter } from '../midi/json-converter.js'
@@ -12,6 +18,8 @@ import { MidiModel }     from '../midi/model.js'
 import { LayerModel }    from '../midi/layer-model.js'
 import { StringInput }   from './string-input.js'
 import { note_clear, scroll_middle } from '../util/position.js'
+import { apply_timeline_width, apply_scale } from '../util/time.js'
+import { Timeline }      from '../ui/timeline.js'
 
 export class JsonIO {
   constructor() {}
@@ -45,22 +53,10 @@ export class JsonIO {
 
   // --- イベント設定 ---
   setEvent() {
-    // Import ボタン
+    // ツールバーのImportボタン（JSONコピペ用モーダル）
     const btnImport = document.querySelector('.json-import-btn')
     if (btnImport) {
-      btnImport.addEventListener('click', () => this.openImport())
-    }
-
-    // Export ボタン
-    const btnExport = document.querySelector('.json-export-btn')
-    if (btnExport) {
-      btnExport.addEventListener('click', () => this.openExport())
-    }
-
-    // MIDI Import ボタン
-    const btnMidiImport = document.querySelector('.midi-import-btn')
-    if (btnMidiImport) {
-      btnMidiImport.addEventListener('click', () => this.openMidiImport())
+      btnImport.addEventListener('click', () => this.openImportModal())
     }
 
     // モーダル閉じる
@@ -77,47 +73,160 @@ export class JsonIO {
     }
   }
 
-  // --- バリデーション ---
-  validate(jsonStr) {
-    if (!jsonStr) {
-      return { ok: false, error: 'JSONを入力してください' }
-    }
-    let parsed
-    try {
-      parsed = JSON.parse(jsonStr)
-    } catch (e) {
-      return { ok: false, error: `JSON構文エラー: ${e.message}` }
-    }
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      return { ok: false, error: 'トップレベルはオブジェクトである必要があります' }
-    }
+  // =========================================
+  //  メニュー: 開く（シーン全体を置き換え）
+  // =========================================
 
-    // v2.0 レイヤー形式
-    if (parsed.layers && Array.isArray(parsed.layers)) {
-      if (parsed.layers.length === 0) {
-        return { ok: false, error: '"layers" 配列に1つ以上のレイヤーが必要です' }
-      }
-      return { ok: true, parsed, format: "2.0" }
-    }
+  openFile() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.addEventListener('change', () => {
+      const file = input.files[0]
+      if (!file) { return }
+      const reader = new FileReader()
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result)
+          const layerData = JsonConverter.importLayers(data)
 
-    // v1.0 旧形式
-    if (!Array.isArray(parsed.notes)) {
-      return { ok: false, error: '"notes" 配列または "layers" 配列が必要です' }
-    }
-    for (let i = 0; i < parsed.notes.length; i++) {
-      const note = parsed.notes[i]
-      if (!note.pitch) {
-        return { ok: false, error: `notes[${i}]: "pitch" が必要です` }
+          note_clear()
+          LayerModel.fromJSON(layerData)
+
+          const active = LayerModel.activeLayer
+          if (active && Element.elm_midi_string) {
+            Element.elm_midi_string.value = active.midiString || ''
+          }
+          if (active && active.midiString) {
+            MidiModel.fromString(active.midiString)
+          }
+
+          // シーン名を復元（データ内のname → なければファイル名）
+          const sceneName = data.name || file.name.replace(/\.json$/i, '')
+          JsonIO._setSceneName(sceneName)
+
+          // シーンデータを復元
+          if (data.scene) {
+            JsonIO._restoreScene(data.scene)
+          }
+
+          scroll_middle()
+        } catch (e) {
+          alert(`ファイルの読み込みに失敗しました: ${e.message}`)
+        }
       }
-      if (!note.duration) {
-        return { ok: false, error: `notes[${i}]: "duration" が必要です` }
-      }
-    }
-    return { ok: true, parsed, format: "1.0" }
+      reader.readAsText(file)
+    })
+    input.click()
   }
 
-  // --- Import ---
-  openImport() {
+  // =========================================
+  //  メニュー: 保存（JSONファイルとして保存）
+  // =========================================
+
+  saveFile() {
+    const sceneName = JsonIO._getSceneName()
+    const sceneOptions = {
+      name: sceneName,
+      time: Number(Element.elm_time.value) || 1,
+      scale: Number(document.querySelector('.scale-slider')?.value) || 100,
+      scrollLeft: Element.elm_editor ? Element.elm_editor.scrollLeft : 0,
+      scrollTop: Element.elm_editor ? Element.elm_editor.scrollTop : 0,
+    }
+    const json = JsonConverter.exportLayers(LayerModel.layers, sceneOptions)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // シーン名をファイル名に使用
+    const fileName = sceneName.replace(/[\/\\:*?"<>|]/g, '_') + '.json'
+    a.download = fileName
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // =========================================
+  //  メニュー: インポート > JSON（レイヤー追加）
+  // =========================================
+
+  importJsonFile() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.addEventListener('change', () => {
+      const file = input.files[0]
+      if (!file) { return }
+      const reader = new FileReader()
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result)
+          const layerData = JsonConverter.importLayers(data)
+          this._addLayersFromImport(layerData)
+        } catch (e) {
+          alert(`JSONファイルの読み込みに失敗しました: ${e.message}`)
+        }
+      }
+      reader.readAsText(file)
+    })
+    input.click()
+  }
+
+  // =========================================
+  //  メニュー: インポート > MIDI（レイヤー追加）
+  // =========================================
+
+  importMidiFile() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.mid,.midi,audio/midi'
+    input.addEventListener('change', () => {
+      const file = input.files[0]
+      if (!file) { return }
+      const reader = new FileReader()
+      reader.onload = () => {
+        try {
+          const tracks = SmfParser.parse(reader.result)
+          if (!tracks || !tracks.length) {
+            alert('MIDIファイルにノートデータが見つかりませんでした')
+            return
+          }
+
+          const newLayers = tracks.map(track => ({
+            name: track.name,
+            mode: "midi",
+            oscillatorType: "square",
+            noteEvents: track.noteEvents,
+            midiString: "",
+            offset: 0,
+            loop: false,
+            volume: 50,
+            mute: false,
+            solo: false,
+            visible: true,
+          }))
+
+          LayerModel.addLayers(newLayers)
+          note_clear()
+          // アクティブレイヤーを更新
+          const active = LayerModel.activeLayer
+          if (active && Element.elm_midi_string) {
+            Element.elm_midi_string.value = active.midiString || ''
+          }
+          scroll_middle()
+        } catch (e) {
+          alert(`MIDIファイルの読み込みに失敗しました: ${e.message}`)
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    })
+    input.click()
+  }
+
+  // =========================================
+  //  ツールバー: Import モーダル（コピペ → レイヤー追加）
+  // =========================================
+
+  openImportModal() {
     const overlay = document.querySelector('.json-modal-overlay')
     const title = document.querySelector('.json-modal-title')
     const textarea = document.querySelector('.json-modal-textarea')
@@ -125,7 +234,7 @@ export class JsonIO {
     const formatBtn = document.querySelector('.json-modal-format')
     const errorEl = document.querySelector('.json-modal-error')
 
-    title.textContent = 'JSON Import'
+    title.textContent = 'JSON Import（レイヤー追加）'
     textarea.value = ''
     textarea.placeholder = '{\n  "bpm": 120,\n  "notes": [\n    { "pitch": "C4", "duration": "4n" }\n  ]\n}'
     textarea.readOnly = false
@@ -144,7 +253,7 @@ export class JsonIO {
         errorEl.className = 'json-modal-error'
         return
       }
-      const result = this.validate(val)
+      const result = this._validate(val)
       if (result.ok) {
         errorEl.textContent = '✓ 有効なJSON'
         errorEl.className = 'json-modal-error valid'
@@ -158,12 +267,32 @@ export class JsonIO {
     // 実行ボタンのイベントを差し替え
     const newBtn = execBtn.cloneNode(true)
     execBtn.parentNode.replaceChild(newBtn, execBtn)
-    newBtn.addEventListener('click', () => this.executeImport())
+    newBtn.addEventListener('click', () => this._executeModalImport())
 
     // 整形ボタンのイベントを差し替え
     const newFmt = formatBtn.cloneNode(true)
     formatBtn.parentNode.replaceChild(newFmt, formatBtn)
-    newFmt.addEventListener('click', () => this.executeFormat())
+    newFmt.addEventListener('click', () => this._executeFormat())
+  }
+
+  // =========================================
+  //  内部メソッド
+  // =========================================
+
+  /**
+   * インポートしたレイヤーデータを既存に追加する
+   */
+  _addLayersFromImport(layerData) {
+    if (!layerData || !layerData.layers || !layerData.layers.length) { return }
+
+    LayerModel.addLayers(layerData.layers)
+    note_clear()
+
+    const active = LayerModel.activeLayer
+    if (active && Element.elm_midi_string) {
+      Element.elm_midi_string.value = active.midiString || ''
+    }
+    scroll_middle()
   }
 
   _removeInputListener() {
@@ -174,7 +303,7 @@ export class JsonIO {
     }
   }
 
-  executeFormat() {
+  _executeFormat() {
     const textarea = document.querySelector('.json-modal-textarea')
     const errorEl = document.querySelector('.json-modal-error')
     const val = textarea.value.trim()
@@ -190,12 +319,12 @@ export class JsonIO {
     }
   }
 
-  executeImport() {
+  _executeModalImport() {
     const textarea = document.querySelector('.json-modal-textarea')
     const errorEl = document.querySelector('.json-modal-error')
     const jsonStr = textarea.value.trim()
 
-    const result = this.validate(jsonStr)
+    const result = this._validate(jsonStr)
     if (!result.ok) {
       errorEl.textContent = result.error
       errorEl.className = 'json-modal-error'
@@ -203,20 +332,8 @@ export class JsonIO {
     }
 
     try {
-      // レイヤー形式に変換（v1.0/v2.0 両対応）
       const layerData = JsonConverter.importLayers(result.parsed)
-
-      note_clear()
-      LayerModel.fromJSON(layerData)
-
-      // アクティブレイヤーのmidiStringをtextareaに反映
-      const active = LayerModel.activeLayer
-      if (active && Element.elm_midi_string) {
-        Element.elm_midi_string.value = active.midiString
-      }
-
-      scroll_middle()
-
+      this._addLayersFromImport(layerData)
       this._removeInputListener()
       this.closeModal()
     }
@@ -226,113 +343,97 @@ export class JsonIO {
     }
   }
 
-  // --- Export ---
-  openExport() {
-    const overlay = document.querySelector('.json-modal-overlay')
-    const title = document.querySelector('.json-modal-title')
-    const textarea = document.querySelector('.json-modal-textarea')
-    const execBtn = document.querySelector('.json-modal-execute')
-    const formatBtn = document.querySelector('.json-modal-format')
-    const errorEl = document.querySelector('.json-modal-error')
+  _validate(jsonStr) {
+    if (!jsonStr) {
+      return { ok: false, error: 'JSONを入力してください' }
+    }
+    let parsed
+    try {
+      parsed = JSON.parse(jsonStr)
+    } catch (e) {
+      return { ok: false, error: `JSON構文エラー: ${e.message}` }
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, error: 'トップレベルはオブジェクトである必要があります' }
+    }
 
-    const json = JsonConverter.exportLayers(LayerModel.layers)
-
-    title.textContent = 'JSON Export'
-    textarea.value = json
-    textarea.placeholder = ''
-    textarea.readOnly = true
-    execBtn.textContent = 'Copy'
-    formatBtn.style.display = 'none'
-    errorEl.textContent = ''
-    errorEl.className = 'json-modal-error'
-    overlay.classList.add('active')
-
-    // コピーボタン
-    const newBtn = execBtn.cloneNode(true)
-    execBtn.parentNode.replaceChild(newBtn, execBtn)
-    newBtn.addEventListener('click', () => this.executeCopy())
-  }
-
-  executeCopy() {
-    const textarea = document.querySelector('.json-modal-textarea')
-    const errorEl = document.querySelector('.json-modal-error')
-
-    navigator.clipboard.writeText(textarea.value).then(() => {
-      errorEl.style.color = '#4CAF50'
-      errorEl.textContent = 'コピーしました'
-      setTimeout(() => {
-        errorEl.textContent = ''
-        errorEl.style.color = ''
-      }, 2000)
-    }).catch(() => {
-      // fallback
-      textarea.readOnly = false
-      textarea.select()
-      document.execCommand('copy')
-      textarea.readOnly = true
-      errorEl.style.color = '#4CAF50'
-      errorEl.textContent = 'コピーしました'
-    })
-  }
-
-  // --- MIDI File Import ---
-  openMidiImport() {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.mid,.midi,audio/midi'
-    input.addEventListener('change', () => {
-      const file = input.files[0]
-      if (!file) { return }
-      const reader = new FileReader()
-      reader.onload = () => {
-        try {
-          const tracks = SmfParser.parse(reader.result)
-          if (!tracks || !tracks.length) {
-            alert('MIDIファイルにノートデータが見つかりませんでした')
-            return
-          }
-
-          // トラックをレイヤーとしてインポート
-          const layerData = {
-            format_version: "3.0",
-            layers: tracks.map(track => ({
-              name: track.name,
-              mode: "midi",
-              oscillatorType: "square",
-              noteEvents: track.noteEvents,
-              midiString: "",
-              offset: 0,
-              loop: false,
-              volume: 50,
-              mute: false,
-              solo: false,
-              visible: true,
-            }))
-          }
-
-          note_clear()
-          LayerModel.fromJSON(layerData)
-
-          // アクティブレイヤーのtextareaを更新（midiモードでは空）
-          const active = LayerModel.activeLayer
-          if (active && Element.elm_midi_string) {
-            Element.elm_midi_string.value = active.midiString || ''
-          }
-
-          scroll_middle()
-        } catch (e) {
-          alert(`MIDIファイルの読み込みに失敗しました: ${e.message}`)
-        }
+    if (parsed.layers && Array.isArray(parsed.layers)) {
+      if (parsed.layers.length === 0) {
+        return { ok: false, error: '"layers" 配列に1つ以上のレイヤーが必要です' }
       }
-      reader.readAsArrayBuffer(file)
-    })
-    input.click()
+      return { ok: true, parsed }
+    }
+
+    if (!Array.isArray(parsed.notes)) {
+      return { ok: false, error: '"notes" 配列または "layers" 配列が必要です' }
+    }
+    for (let i = 0; i < parsed.notes.length; i++) {
+      const note = parsed.notes[i]
+      if (!note.pitch) {
+        return { ok: false, error: `notes[${i}]: "pitch" が必要です` }
+      }
+      if (!note.duration) {
+        return { ok: false, error: `notes[${i}]: "duration" が必要です` }
+      }
+    }
+    return { ok: true, parsed }
   }
 
-  // --- モーダル閉じる ---
   closeModal() {
     this._removeInputListener()
     const overlay = document.querySelector('.json-modal-overlay')
     if (overlay) { overlay.classList.remove('active') }
+  }
+
+  // --- シーン名ヘルパー ---
+
+  static _getSceneName() {
+    const el = document.querySelector('.scene-name')
+    return el ? el.textContent : '名称未設定'
+  }
+
+  static _setSceneName(name) {
+    const el = document.querySelector('.scene-name')
+    if (el) { el.textContent = name || '名称未設定' }
+    try { localStorage.setItem('mynt_scene_name', name || '名称未設定') } catch(e){}
+  }
+
+  /**
+   * シーンデータ（time, scale, scroll）を復元する
+   */
+  static _restoreScene(scene) {
+    // Time
+    if (scene.time && Element.elm_time) {
+      Element.elm_time.value = scene.time
+      apply_timeline_width(scene.time)
+    }
+
+    // Scale
+    if (scene.scale) {
+      const slider = document.querySelector('.scale-slider')
+      const label = document.querySelector('.scale-value')
+      if (slider) { slider.value = scene.scale }
+      if (label) { label.textContent = `${scene.scale}%` }
+      apply_scale(scene.scale / 100)
+      const sec = Number(Element.elm_time.value) || 1
+      apply_timeline_width(sec)
+      try { localStorage.setItem('mynt_scale', String(scene.scale)) } catch(e){}
+    }
+
+    // Timeline再描画
+    new Timeline().init()
+
+    // Scroll位置（描画完了後に適用）
+    requestAnimationFrame(() => {
+      if (scene.scrollLeft != null && Element.elm_editor) {
+        Element.elm_editor.scrollLeft = scene.scrollLeft
+        if (Element.elm_timeline) { Element.elm_timeline.scrollLeft = scene.scrollLeft }
+      }
+      if (scene.scrollTop != null && Element.elm_editor) {
+        Element.elm_editor.scrollTop = scene.scrollTop
+        const keyboard = document.querySelector('.keyboard')
+        if (keyboard) { keyboard.scrollTop = scene.scrollTop }
+      }
+    })
   }
 }
