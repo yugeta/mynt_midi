@@ -253,15 +253,19 @@ export class JsonConverter {
     const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr
     const format = JsonConverter.detectFormat(data)
 
-    if (format === "2.0") {
+    if (format === "2.0" || format === "3.0") {
       return {
-        format_version: "2.0",
+        format_version: "3.0",
         layers: data.layers.map(l => ({
           id: l.id,
           name: l.name || "Note",
+          mode: l.mode || (l.noteEvents ? "midi" : "string"),
           oscillatorType: l.oscillatorType || "square",
           color: l.color,
-          midiString: l.midiString || (l.notes ? JsonConverter.toMidiString({ bpm: l.bpm || 120, notes: l.notes }) : ""),
+          midiString: l.midiString || (l.mode !== "midi" && l.notes ? JsonConverter.toMidiString({ bpm: l.bpm || 120, notes: l.notes }) : ""),
+          noteEvents: Array.isArray(l.noteEvents) ? l.noteEvents : null,
+          offset: Number(l.offset) || 0,
+          loop: !!l.loop,
           volume: l.volume !== undefined ? l.volume : 50,
           mute: !!l.mute,
           solo: !!l.solo,
@@ -273,11 +277,15 @@ export class JsonConverter {
     // v1.0: 旧形式を単一レイヤーに変換
     const midiStr = JsonConverter.toMidiString(data)
     return {
-      format_version: "2.0",
+      format_version: "3.0",
       layers: [{
         name: "Note 1",
+        mode: "string",
         oscillatorType: "square",
         midiString: midiStr,
+        noteEvents: null,
+        offset: 0,
+        loop: false,
         volume: 50,
         mute: false,
         solo: false,
@@ -289,7 +297,10 @@ export class JsonConverter {
   /** フォーマットバージョン判定 */
   static detectFormat(data) {
     const obj = typeof data === 'string' ? JSON.parse(data) : data
-    if (obj.layers && Array.isArray(obj.layers)) { return "2.0" }
+    if (obj.layers && Array.isArray(obj.layers)) {
+      if (obj.format_version === "3.0") { return "3.0" }
+      return "2.0"
+    }
     return "1.0"
   }
 }

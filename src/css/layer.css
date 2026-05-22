@@ -86,6 +86,14 @@
   white-space: nowrap;
   cursor: text;
 }
+.layer-mode-badge {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #e0e0e0;
+  color: #555;
+  margin-right: 2px;
+}
 .layer-name-input {
   font-size: 12px;
   width: 80px;

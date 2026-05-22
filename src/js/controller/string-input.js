@@ -136,6 +136,30 @@ export class StringInput{
     return datas[datas.length - 1].time
   }
 
+  /**
+   * レイヤーの再生時間を取得（秒）— モードに応じて計算
+   */
+  static getLayerDuration(layer){
+    if(!layer){return 0}
+    const offset = layer.offset || 0
+
+    if(layer.mode === 'midi' && layer.noteEvents && layer.noteEvents.length){
+      // MIDIモード: 最後のノートの終了時刻
+      let maxEnd = 0
+      for(const event of layer.noteEvents){
+        const end = event.time + event.duration
+        if(end > maxEnd){ maxEnd = end }
+      }
+      return maxEnd + offset
+    }
+
+    // 軽量モード
+    if(layer.midiString){
+      return StringInput.getMidiDuration(layer.midiString) + offset
+    }
+    return 0
+  }
+
   string2editor(){
     const string = Element.elm_midi_string.value
     if(!string){return}
@@ -180,7 +204,11 @@ export class StringInput{
     for(const layer of layers){
       if(layer.id === activeId){continue}
       if(!layer.visible){continue}
-      if(layer.notesData && layer.notesData.length){
+
+      if(layer.mode === 'midi' && layer.noteEvents && layer.noteEvents.length){
+        // MIDIモード: noteEventsから直接描画
+        StringInput._renderFromNoteEvents(layer, false)
+      } else if(layer.notesData && layer.notesData.length){
         // notesData から描画（位置を正確に維持）
         StringInput._renderFromSnapshotNotes(layer.notesData, layer, false)
       } else if(layer.midiString){
@@ -192,11 +220,16 @@ export class StringInput{
     // アクティブレイヤーを最後に描画（前面）— MidiModel から描画
     const activeLayer = LayerModel.activeLayer
     if(activeLayer && activeLayer.visible){
-      const notes = MidiModel.notes
-      if(notes && notes.length){
-        StringInput._renderFromModelNotes(notes, activeLayer)
-      } else if(activeLayer.midiString){
-        StringInput._renderLayerNotes(activeLayer, true)
+      if(activeLayer.mode === 'midi' && activeLayer.noteEvents && activeLayer.noteEvents.length){
+        // MIDIモード: noteEventsから直接描画
+        StringInput._renderFromNoteEvents(activeLayer, true)
+      } else {
+        const notes = MidiModel.notes
+        if(notes && notes.length){
+          StringInput._renderFromModelNotes(notes, activeLayer)
+        } else if(activeLayer.midiString){
+          StringInput._renderLayerNotes(activeLayer, true)
+        }
       }
     }
   }
@@ -244,6 +277,33 @@ export class StringInput{
       lastNote.classList.add('layer-active')
     }
   }
+
+  /**
+   * noteEvents からエディタに描画する（MIDIモード用）
+   * MIDIノート番号 → オクターブ + 音名に変換して描画
+   */
+  static _renderFromNoteEvents(layer, isActive){
+    const events = layer.noteEvents
+    if(!events || !events.length){return}
+
+    const offset = layer.offset || 0
+
+    for(const event of events){
+      const octave = Math.floor(event.midi / 12)
+      const semitone = event.midi % 12
+      const key = StringInput._SEMITONE_TO_KEY[semitone]
+      if(!key){continue}
+
+      const startTime = event.time + offset
+      const left = sec2px(startTime)
+      const width = sec2px(event.duration)
+
+      StringInput._putLayerNote(octave, key, left, width, layer, isActive)
+    }
+  }
+
+  /** 半音番号 → 音名マッピング（キーボードDOMのdata-key属性に合わせる） */
+  static _SEMITONE_TO_KEY = ['c','d-','d','e-','e','f','g-','g','a-','a','b-','b']
 
   /**
    * 1レイヤーのノートを描画する（Time 基準）

@@ -9,6 +9,10 @@
  *   - reset() : ユーザー操作でデータをリセット（コールバックは維持）
  *   - onChange() / offChange() : リスナーの登録・解除
  *
+ * ハイブリッドモード:
+ *   - mode: "string" — 軽量モード（MIDI文字列テキスト）
+ *   - mode: "midi"   — MIDIモード（noteEventsリスト、精度劣化なし）
+ *
  * データフロー:
  *   LayerPanel UI → LayerModel → textarea / MidiModel / MidiPlayer
  */
@@ -25,6 +29,7 @@ const LAYER_COLORS = [
 ]
 
 const VALID_OSCILLATOR_TYPES = ["sine", "square", "sawtooth", "triangle"]
+const VALID_MODES = ["string", "midi"]
 
 let _layers = []
 let _activeLayerId = null
@@ -161,7 +166,7 @@ export class LayerModel {
 
   static toJSON() {
     return {
-      format_version: "2.0",
+      format_version: "3.0",
       layers: _layers.map(l => ({ ...l }))
     }
   }
@@ -173,11 +178,15 @@ export class LayerModel {
     _layers = data.layers.map((l, index) => ({
       id: l.id || `layer_${_nextId++}`,
       name: l.name || "Layer",
+      mode: VALID_MODES.includes(l.mode) ? l.mode : "string",
       oscillatorType: VALID_OSCILLATOR_TYPES.includes(l.oscillatorType)
         ? l.oscillatorType : "square",
       color: l.color || LAYER_COLORS[index % LAYER_COLORS.length],
       midiString: l.midiString || "",
+      noteEvents: Array.isArray(l.noteEvents) ? l.noteEvents : null,
       notesData: l.notesData || null,
+      offset: Number(l.offset) || 0,
+      loop: !!l.loop,
       volume: Math.max(0, Math.min(100, Number(l.volume) || 50)),
       mute: !!l.mute,
       solo: !!l.solo,
@@ -205,10 +214,14 @@ export class LayerModel {
     return {
       id,
       name: `Note ${_nextId}`,
+      mode: "string",
       oscillatorType: oscillatorType || "square",
       color: LAYER_COLORS[colorIndex],
       midiString: midiString || "",
-      notesData: null,  // MidiModel のスナップショット（レイヤー切替時に保存）
+      noteEvents: null,
+      notesData: null,
+      offset: 0,
+      loop: false,
       volume: 50,
       mute: false,
       solo: false,

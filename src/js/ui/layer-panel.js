@@ -116,6 +116,12 @@ export class LayerPanel {
     const name = document.createElement('span')
     name.classList.add('layer-name')
     name.textContent = layer.name
+    // モードバッジ
+    const modeBadge = document.createElement('span')
+    modeBadge.classList.add('layer-mode-badge')
+    modeBadge.textContent = layer.mode === 'midi' ? '♪' : '✎'
+    modeBadge.title = layer.mode === 'midi' ? 'MIDI mode' : 'String mode'
+    row.appendChild(modeBadge)
     name.addEventListener('dblclick', (e) => {
       e.stopPropagation()
       const input = document.createElement('input')

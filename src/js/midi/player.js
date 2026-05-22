@@ -137,7 +137,9 @@ export class MidiPlayer{
   }
 
   /**
-   * 複数レイヤーを同時再生する
+   * 複数レイヤーを同時再生する（ハイブリッド対応）
+   * mode: "string" → MIDI文字列をパースして再生
+   * mode: "midi"   → noteEventsを直接スケジュール（精度劣化なし）
    * @param {Array} layers - レイヤー配列
    * @param {object} [options] - { offsetSec?: number }
    */
@@ -150,15 +152,32 @@ export class MidiPlayer{
 
     let maxDuration = 0
     for(const layer of playable){
-      const datas = MidiParser.get_code(layer.midiString)
-      if(!datas || !datas.length){ continue }
-      const result = MidiPlayer._schedule(datas, {
-        oscillatorType: layer.oscillatorType || 'square',
-        volume: layer.volume,
-        offsetSec,
-      })
-      if(result && result.duration > maxDuration){
-        maxDuration = result.duration
+      const layerOffset = layer.offset || 0
+      const mode = layer.mode || 'string'
+
+      if(mode === 'midi' && Array.isArray(layer.noteEvents) && layer.noteEvents.length){
+        // MIDIモード: noteEventsを直接スケジュール
+        const result = MidiPlayer._scheduleFromEvents(layer.noteEvents, {
+          oscillatorType: layer.oscillatorType || 'square',
+          volume: layer.volume,
+          offsetSec: offsetSec - layerOffset,
+          loop: layer.loop,
+        })
+        if(result && result.duration > maxDuration){
+          maxDuration = result.duration + layerOffset
+        }
+      } else if(layer.midiString){
+        // 軽量モード: MIDI文字列をパースして再生
+        const datas = MidiParser.get_code(layer.midiString)
+        if(!datas || !datas.length){ continue }
+        const result = MidiPlayer._schedule(datas, {
+          oscillatorType: layer.oscillatorType || 'square',
+          volume: layer.volume,
+          offsetSec: offsetSec - layerOffset,
+        })
+        if(result && result.duration > maxDuration){
+          maxDuration = result.duration + layerOffset
+        }
       }
     }
     return { startTime: MidiPlayer.audio.currentTime, duration: maxDuration }
@@ -170,9 +189,9 @@ export class MidiPlayer{
   static _getPlayableLayers(layers){
     const hasSolo = layers.some(l => l.solo)
     if(hasSolo){
-      return layers.filter(l => l.solo && !l.mute && l.visible !== false && l.midiString)
+      return layers.filter(l => l.solo && !l.mute && l.visible !== false && (l.midiString || (l.noteEvents && l.noteEvents.length)))
     }
-    return layers.filter(l => !l.mute && l.visible !== false && l.midiString)
+    return layers.filter(l => !l.mute && l.visible !== false && (l.midiString || (l.noteEvents && l.noteEvents.length)))
   }
 
   /**
@@ -308,6 +327,98 @@ export class MidiPlayer{
     }
 
     return { startTime, duration: scheduleTime }
+  }
+
+  /**
+   * noteEvents を Web Audio API で直接スケジュールする（MIDIモード用）
+   * T値変換を経由しないため精度劣化なし。
+   *
+   * @param {Array} events - [{time, duration, midi, velocity}, ...]
+   * @param {object} options - { oscillatorType, volume, offsetSec, loop }
+   */
+  static _scheduleFromEvents(events, options){
+    const ctx = MidiPlayer.audio
+    const startTime = ctx.currentTime
+    const oscType = options.oscillatorType || 'square'
+    const masterVol = (options.volume != null ? options.volume : 100) / 100
+    const offsetSec = options.offsetSec || 0
+    const env = MidiPlayer._getEnvelope(oscType)
+
+    // 同時発音数の上限（CPU負荷対策）
+    const MAX_POLYPHONY = 16
+    let activeCount = 0
+
+    const oscillators = []
+    const gains = []
+    let maxEndTime = 0
+
+    for(const event of events){
+      const noteStart = event.time - offsetSec
+      const noteEnd = noteStart + event.duration
+
+      // オフセットより前のノートはスキップ
+      if(noteEnd <= 0){ continue }
+
+      // 同時発音数制限
+      if(activeCount >= MAX_POLYPHONY){ continue }
+
+      const schedStart = Math.max(0, noteStart)
+      const schedDur = noteEnd - schedStart
+      if(schedDur <= 0){ continue }
+
+      const freq = 440 * Math.pow(2, (event.midi - 69) / 12)
+      const vel = (event.velocity != null ? event.velocity : 64) / 127
+      const vol = vel * masterVol * 0.05  // 0.05 はベース音量スケール
+
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = oscType
+      osc.frequency.setValueAtTime(freq, startTime + schedStart)
+
+      // ADSR エンベロープ
+      const attack = Math.min(env.attack, schedDur * 0.3)
+      const decay = Math.min(env.decay, schedDur * 0.3)
+      const release = Math.min(env.release, schedDur * 0.4)
+      const sustainVol = vol * env.sustain
+
+      const t0 = startTime + schedStart
+      gain.gain.setValueAtTime(0, t0)
+      gain.gain.linearRampToValueAtTime(vol, t0 + attack)
+      gain.gain.linearRampToValueAtTime(sustainVol, t0 + attack + decay)
+      gain.gain.setValueAtTime(sustainVol, t0 + schedDur - release)
+      gain.gain.linearRampToValueAtTime(0, t0 + schedDur)
+
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(t0)
+      osc.stop(t0 + schedDur + 0.01)
+
+      oscillators.push(osc)
+      gains.push(gain)
+      activeCount++
+
+      if(noteEnd > maxEndTime){ maxEndTime = noteEnd }
+
+      // ノード終了時にカウントを減らす
+      osc.onended = () => { activeCount-- }
+    }
+
+    if(!oscillators.length){
+      return { startTime, duration: 0 }
+    }
+
+    // ノードを追跡リストに登録
+    const nodeEntry = { oscillators, gains }
+    MidiPlayer._activeNodes.push(nodeEntry)
+
+    // 最後のオシレーター終了時にクリーンアップ
+    oscillators[oscillators.length - 1].onended = () => {
+      activeCount--
+      const idx = MidiPlayer._activeNodes.indexOf(nodeEntry)
+      if(idx !== -1){ MidiPlayer._activeNodes.splice(idx, 1) }
+    }
+
+    return { startTime, duration: maxEndTime }
   }
 
   /**

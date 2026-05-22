@@ -6,6 +6,7 @@
  */
 
 import { JsonConverter } from '../midi/json-converter.js'
+import { SmfParser }    from '../midi/smf-parser.js'
 import { Element }       from '../ui/element.js'
 import { MidiModel }     from '../midi/model.js'
 import { LayerModel }    from '../midi/layer-model.js'
@@ -54,6 +55,12 @@ export class JsonIO {
     const btnExport = document.querySelector('.json-export-btn')
     if (btnExport) {
       btnExport.addEventListener('click', () => this.openExport())
+    }
+
+    // MIDI Import ボタン
+    const btnMidiImport = document.querySelector('.midi-import-btn')
+    if (btnMidiImport) {
+      btnMidiImport.addEventListener('click', () => this.openMidiImport())
     }
 
     // モーダル閉じる
@@ -266,6 +273,60 @@ export class JsonIO {
       errorEl.style.color = '#4CAF50'
       errorEl.textContent = 'コピーしました'
     })
+  }
+
+  // --- MIDI File Import ---
+  openMidiImport() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.mid,.midi,audio/midi'
+    input.addEventListener('change', () => {
+      const file = input.files[0]
+      if (!file) { return }
+      const reader = new FileReader()
+      reader.onload = () => {
+        try {
+          const tracks = SmfParser.parse(reader.result)
+          if (!tracks || !tracks.length) {
+            alert('MIDIファイルにノートデータが見つかりませんでした')
+            return
+          }
+
+          // トラックをレイヤーとしてインポート
+          const layerData = {
+            format_version: "3.0",
+            layers: tracks.map(track => ({
+              name: track.name,
+              mode: "midi",
+              oscillatorType: "square",
+              noteEvents: track.noteEvents,
+              midiString: "",
+              offset: 0,
+              loop: false,
+              volume: 50,
+              mute: false,
+              solo: false,
+              visible: true,
+            }))
+          }
+
+          note_clear()
+          LayerModel.fromJSON(layerData)
+
+          // アクティブレイヤーのtextareaを更新（midiモードでは空）
+          const active = LayerModel.activeLayer
+          if (active && Element.elm_midi_string) {
+            Element.elm_midi_string.value = active.midiString || ''
+          }
+
+          scroll_middle()
+        } catch (e) {
+          alert(`MIDIファイルの読み込みに失敗しました: ${e.message}`)
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    })
+    input.click()
   }
 
   // --- モーダル閉じる ---

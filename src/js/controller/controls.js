@@ -108,8 +108,7 @@ export class Controls{
   click_trim(){
     let maxDuration = 0
     for(const layer of LayerModel.layers){
-      if(!layer.midiString){ continue }
-      const dur = StringInput.getMidiDuration(layer.midiString)
+      const dur = StringInput.getLayerDuration(layer)
       if(dur > maxDuration){ maxDuration = dur }
     }
     if(maxDuration <= 0){ return }
@@ -162,8 +161,7 @@ export class Controls{
   static _getMaxDuration(){
     let maxMs = 0
     for(const layer of LayerModel.layers){
-      if(!layer.midiString){continue}
-      const dur = StringInput.getMidiDuration(layer.midiString)
+      const dur = StringInput.getLayerDuration(layer)
       if(dur > 0){
         const ms = dur * 1000
         if(ms > maxMs){ maxMs = ms }
@@ -294,44 +292,68 @@ export class Controls{
     const timeline = []
     const playable = MidiPlayer._getPlayableLayers(LayerModel.layers)
 
+    /** 半音番号 → 音名 */
+    const SEMITONE_TO_KEY = ['c','d-','d','e-','e','f','g-','g','a-','a','b-','b']
+
     for(const layer of playable){
-      const datas = MidiParser.get_code(layer.midiString)
-      if(!datas || !datas.length){ continue }
+      const layerOffset = layer.offset || 0
+      const mode = layer.mode || 'string'
 
-      for(const data of datas){
-        if(!data.freq){ continue }
-        const startSec = data.time - data.tempo - offsetSec
-        const endSec = data.time - offsetSec
-        if(endSec <= 0){ continue } // オフセットより前のノートはスキップ
+      if(mode === 'midi' && Array.isArray(layer.noteEvents) && layer.noteEvents.length){
+        // MIDIモード: noteEventsから直接タイムライン構築
+        for(const event of layer.noteEvents){
+          const startSec = event.time + layerOffset - offsetSec
+          const endSec = startSec + event.duration
+          if(endSec <= 0){ continue }
 
-        // 和音の処理
-        if(data.freq.constructor === Array){
-          // 和音内の各音を取得
-          const reg = /\[(.+?)\]/i
-          const res = reg.exec(data.S)
-          if(res){
-            const chordNotes = MidiParser.get_code(res[1])
-            if(chordNotes){
-              for(const cn of chordNotes){
-                if(cn.O != null && cn.S){
-                  timeline.push({
-                    startSec: Math.max(0, startSec),
-                    endSec,
-                    octave: cn.O,
-                    key: cn.S.toLowerCase()
-                  })
-                }
-              }
-            }
-          }
-        } else if(data.O != null) {
-          // 単音
+          const octave = Math.floor(event.midi / 12)
+          const key = SEMITONE_TO_KEY[event.midi % 12]
+
           timeline.push({
             startSec: Math.max(0, startSec),
             endSec,
-            octave: data.O,
-            key: data.S.toLowerCase()
+            octave,
+            key
           })
+        }
+      } else if(layer.midiString){
+        // 軽量モード: MIDI文字列からタイムライン構築
+        const datas = MidiParser.get_code(layer.midiString)
+        if(!datas || !datas.length){ continue }
+
+        for(const data of datas){
+          if(!data.freq){ continue }
+          const startSec = data.time - data.tempo + layerOffset - offsetSec
+          const endSec = data.time + layerOffset - offsetSec
+          if(endSec <= 0){ continue }
+
+          // 和音の処理
+          if(data.freq.constructor === Array){
+            const reg = /\[(.+?)\]/i
+            const res = reg.exec(data.S)
+            if(res){
+              const chordNotes = MidiParser.get_code(res[1])
+              if(chordNotes){
+                for(const cn of chordNotes){
+                  if(cn.O != null && cn.S){
+                    timeline.push({
+                      startSec: Math.max(0, startSec),
+                      endSec,
+                      octave: cn.O,
+                      key: cn.S.toLowerCase()
+                    })
+                  }
+                }
+              }
+            }
+          } else if(data.O != null) {
+            timeline.push({
+              startSec: Math.max(0, startSec),
+              endSec,
+              octave: data.O,
+              key: data.S.toLowerCase()
+            })
+          }
         }
       }
     }
