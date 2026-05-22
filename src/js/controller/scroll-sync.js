@@ -33,5 +33,13 @@ export class ScrollSync{
     if(Element.elm_timebar_area){
       Element.elm_timebar_area.scrollLeft = pos.x
     }
+    // スクロール位置を保存（デバウンス）
+    clearTimeout(ScrollSync._saveTimer)
+    ScrollSync._saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem('mynt_scroll_left', String(pos.x))
+        localStorage.setItem('mynt_scroll_top', String(pos.y))
+      } catch(e){}
+    }, 300)
   }
 }

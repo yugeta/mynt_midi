@@ -83,6 +83,7 @@ export class StringInput{
       Element.elm_time.value = sec
       apply_timeline_width(sec)
       new Timeline().init()
+      try { localStorage.setItem('mynt_time', String(sec)) } catch(e){}
     }
   }
 

@@ -254,6 +254,8 @@ export class JsonConverter {
           visible: l.visible,
           offset: l.offset || 0,
           loop: !!l.loop,
+          fadeIn: l.fadeIn || 0,
+          fadeOut: l.fadeOut || 0,
         }
 
         if (l.mode === 'midi' && Array.isArray(l.noteEvents) && l.noteEvents.length) {

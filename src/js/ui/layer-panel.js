@@ -98,6 +98,21 @@ export class LayerPanel {
     if (isActive) { row.classList.add('active') }
     row.setAttribute('data-layer-id', layer.id)
 
+    // 選択ボタン
+    const selectBtn = document.createElement('button')
+    selectBtn.classList.add('layer-select-btn')
+    selectBtn.textContent = '▶'
+    selectBtn.title = 'このレイヤーを選択'
+    if (isActive) { selectBtn.classList.add('active') }
+    selectBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (LayerModel.activeLayerId !== layer.id) {
+        LayerModel.setActive(layer.id)
+      }
+    })
+    selectBtn.addEventListener('mousedown', (e) => e.stopPropagation())
+    row.appendChild(selectBtn)
+
     // カラーインジケーター（クリックで表示/非表示トグル）
     const color = document.createElement('div')
     color.classList.add('layer-color')
@@ -112,189 +127,181 @@ export class LayerPanel {
     color.addEventListener('mousedown', (e) => e.stopPropagation())
     row.appendChild(color)
 
-    // レイヤー名（ダブルクリックで編集）
-    const name = document.createElement('span')
-    name.classList.add('layer-name')
-    name.textContent = layer.name
     // モードバッジ
     const modeBadge = document.createElement('span')
     modeBadge.classList.add('layer-mode-badge')
-    modeBadge.textContent = layer.mode === 'midi' ? '♪' : '✎'
+    modeBadge.textContent = layer.mode === 'midi' ? '♪ MIDI' : '✎ String'
     modeBadge.title = layer.mode === 'midi' ? 'MIDI mode' : 'String mode'
     row.appendChild(modeBadge)
-    name.addEventListener('dblclick', (e) => {
-      e.stopPropagation()
-      const input = document.createElement('input')
-      input.type = 'text'
-      input.classList.add('layer-name-input')
-      input.value = layer.name
-      name.replaceWith(input)
-      input.focus()
-      input.select()
 
-      const commit = () => {
-        const val = input.value.trim() || layer.name
-        LayerModel.updateLayer(layer.id, { name: val })
-      }
-      input.addEventListener('blur', commit)
-      input.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') { input.blur() }
-        if (ev.key === 'Escape') { input.value = layer.name; input.blur() }
-      })
-      input.addEventListener('mousedown', (ev) => ev.stopPropagation())
-      input.addEventListener('click', (ev) => ev.stopPropagation())
-    })
+    // レイヤー名
+    const name = document.createElement('span')
+    name.classList.add('layer-name')
+    name.textContent = layer.name
     row.appendChild(name)
-
-    // オシレータタイプ選択
-    const oscSelect = document.createElement('select')
-    oscSelect.classList.add('layer-oscillator')
-    for (const type of ['sine', 'square', 'sawtooth', 'triangle']) {
-      const opt = document.createElement('option')
-      opt.value = type
-      opt.textContent = type
-      if (type === layer.oscillatorType) { opt.selected = true }
-      oscSelect.appendChild(opt)
-    }
-    oscSelect.addEventListener('change', (e) => {
-      e.stopPropagation()
-      LayerModel.updateLayer(layer.id, { oscillatorType: e.target.value })
-    })
-    oscSelect.addEventListener('mousedown', (e) => e.stopPropagation())
-    oscSelect.addEventListener('click', (e) => e.stopPropagation())
-    row.appendChild(oscSelect)
 
     // ミュートボタン
     const muteBtn = document.createElement('button')
     muteBtn.classList.add('layer-mute-btn')
     if (layer.mute) { muteBtn.classList.add('on') }
-    muteBtn.textContent = 'M'
-    muteBtn.title = 'Mute — このレイヤーをミュート（消音）'
+    muteBtn.textContent = 'Mute'
+    muteBtn.title = 'Mute'
     muteBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       LayerModel.updateLayer(layer.id, { mute: !layer.mute })
     })
+    muteBtn.addEventListener('mousedown', (e) => e.stopPropagation())
     row.appendChild(muteBtn)
 
     // ソロボタン
     const soloBtn = document.createElement('button')
     soloBtn.classList.add('layer-solo-btn')
     if (layer.solo) { soloBtn.classList.add('on') }
-    soloBtn.textContent = 'S'
-    soloBtn.title = 'Solo — このレイヤーだけを再生'
+    soloBtn.textContent = 'Solo'
+    soloBtn.title = 'Solo'
     soloBtn.addEventListener('click', (e) => {
       e.stopPropagation()
       LayerModel.updateLayer(layer.id, { solo: !layer.solo })
     })
+    soloBtn.addEventListener('mousedown', (e) => e.stopPropagation())
     row.appendChild(soloBtn)
 
-    // トランスポーズボタン群
-    const transposeWrap = document.createElement('div')
-    transposeWrap.classList.add('layer-transpose-wrap')
-    transposeWrap.title = 'Transpose — 音程をずらす'
-
-    const btnOctDown = document.createElement('button')
-    btnOctDown.classList.add('layer-transpose-btn')
-    btnOctDown.textContent = '-8'
-    btnOctDown.title = '1オクターブ下げる'
-    btnOctDown.addEventListener('click', (e) => {
+    // 設定ボタン（詳細モーダルを開く）
+    const settingsBtn = document.createElement('button')
+    settingsBtn.classList.add('layer-settings-btn')
+    settingsBtn.textContent = '詳細'
+    settingsBtn.title = '詳細設定'
+    settingsBtn.addEventListener('click', (e) => {
       e.stopPropagation()
-      this._transposeLayer(layer.id, -12)
+      this._openDetailModal(layer.id)
     })
-    btnOctDown.addEventListener('mousedown', (e) => e.stopPropagation())
-
-    const btnDown = document.createElement('button')
-    btnDown.classList.add('layer-transpose-btn')
-    btnDown.textContent = '-1'
-    btnDown.title = '半音下げる'
-    btnDown.addEventListener('click', (e) => {
-      e.stopPropagation()
-      this._transposeLayer(layer.id, -1)
-    })
-    btnDown.addEventListener('mousedown', (e) => e.stopPropagation())
-
-    const btnUp = document.createElement('button')
-    btnUp.classList.add('layer-transpose-btn')
-    btnUp.textContent = '+1'
-    btnUp.title = '半音上げる'
-    btnUp.addEventListener('click', (e) => {
-      e.stopPropagation()
-      this._transposeLayer(layer.id, 1)
-    })
-    btnUp.addEventListener('mousedown', (e) => e.stopPropagation())
-
-    const btnOctUp = document.createElement('button')
-    btnOctUp.classList.add('layer-transpose-btn')
-    btnOctUp.textContent = '+8'
-    btnOctUp.title = '1オクターブ上げる'
-    btnOctUp.addEventListener('click', (e) => {
-      e.stopPropagation()
-      this._transposeLayer(layer.id, 12)
-    })
-    btnOctUp.addEventListener('mousedown', (e) => e.stopPropagation())
-
-    transposeWrap.appendChild(btnOctDown)
-    transposeWrap.appendChild(btnDown)
-    transposeWrap.appendChild(btnUp)
-    transposeWrap.appendChild(btnOctUp)
-    row.appendChild(transposeWrap)
-
-    // 音量スライダー + 数値表示
-    const volWrap = document.createElement('div')
-    volWrap.classList.add('layer-volume-wrap')
-    volWrap.title = 'Volume — レイヤーの音量'
-
-    const volume = document.createElement('input')
-    volume.classList.add('layer-volume')
-    volume.type = 'range'
-    volume.min = '0'
-    volume.max = '100'
-    volume.value = String(layer.volume)
-
-    const volLabel = document.createElement('span')
-    volLabel.classList.add('layer-volume-label')
-    volLabel.textContent = layer.volume
-
-    volume.addEventListener('input', (e) => {
-      e.stopPropagation()
-      // ドラッグ中はDOMを再構築しない（直接プロパティ更新）
-      layer.volume = Math.max(0, Math.min(100, Number(e.target.value) || 0))
-      volLabel.textContent = layer.volume
-    })
-    volume.addEventListener('change', (e) => {
-      e.stopPropagation()
-      // ドラッグ完了時にモデルを正式更新
-      LayerModel.updateLayer(layer.id, { volume: Number(e.target.value) })
-    })
-    volume.addEventListener('mousedown', (e) => e.stopPropagation())
-    volume.addEventListener('click', (e) => e.stopPropagation())
-
-    volWrap.appendChild(volume)
-    volWrap.appendChild(volLabel)
-    row.appendChild(volWrap)
-
-    // 削除ボタン（右端に配置）
-    const deleteBtn = document.createElement('span')
-    deleteBtn.classList.add('layer-delete-btn')
-    deleteBtn.textContent = '✕'
-    deleteBtn.title = 'Delete layer'
-    deleteBtn.addEventListener('click', (e) => {
-      e.stopPropagation()
-      if(!confirm(`「${layer.name}」を削除しますか？\nこのレイヤーのデータは全て失われます。`)){
-        return
-      }
-      LayerModel.removeLayer(layer.id)
-    })
-    row.appendChild(deleteBtn)
-
-    // 行クリックでアクティブ切替（captureフェーズで処理し、子要素のstopPropagationに影響されない）
-    row.addEventListener('mousedown', () => {
-      if (LayerModel.activeLayerId !== layer.id) {
-        LayerModel.setActive(layer.id)
-      }
-    }, true)
+    settingsBtn.addEventListener('mousedown', (e) => e.stopPropagation())
+    row.appendChild(settingsBtn)
 
     return row
+  }
+
+  // --- レイヤー詳細モーダル ---
+
+  _openDetailModal(layerId) {
+    const layer = LayerModel.layers.find(l => l.id === layerId)
+    if (!layer) { return }
+
+    // 既存モーダルがあれば削除
+    const existing = document.querySelector('.layer-detail-overlay')
+    if (existing) { existing.remove() }
+
+    const overlay = document.createElement('div')
+    overlay.className = 'layer-detail-overlay'
+    overlay.innerHTML = `
+      <div class="layer-detail-modal">
+        <div class="layer-detail-title">レイヤー設定: <span class="layer-detail-name">${layer.name}</span></div>
+        <div class="layer-detail-body">
+          <div class="layer-detail-section">
+            <label>レイヤー名</label>
+            <input type="text" class="ld-name" value="${layer.name}" />
+          </div>
+          <div class="layer-detail-section">
+            <label>オシレータ</label>
+            <select class="ld-oscillator">
+              <option value="sine" ${layer.oscillatorType === 'sine' ? 'selected' : ''}>sine</option>
+              <option value="square" ${layer.oscillatorType === 'square' ? 'selected' : ''}>square</option>
+              <option value="sawtooth" ${layer.oscillatorType === 'sawtooth' ? 'selected' : ''}>sawtooth</option>
+              <option value="triangle" ${layer.oscillatorType === 'triangle' ? 'selected' : ''}>triangle</option>
+            </select>
+          </div>
+          <div class="layer-detail-section">
+            <label>音量</label>
+            <input type="range" class="ld-volume" min="0" max="100" value="${layer.volume}" />
+            <span class="ld-volume-val">${layer.volume}</span>
+          </div>
+          <div class="layer-detail-section">
+            <label>Fade In（秒）</label>
+            <input type="number" class="ld-fadein" min="0" max="60" step="0.5" value="${layer.fadeIn || 0}" />
+          </div>
+          <div class="layer-detail-section">
+            <label>Fade Out（秒）</label>
+            <input type="number" class="ld-fadeout" min="0" max="60" step="0.5" value="${layer.fadeOut || 0}" />
+          </div>
+          <div class="layer-detail-section">
+            <label>トランスポーズ</label>
+            <div class="ld-transpose-btns">
+              <button data-semi="-12">-8ve</button>
+              <button data-semi="-1">-1</button>
+              <button data-semi="1">+1</button>
+              <button data-semi="12">+8ve</button>
+            </div>
+          </div>
+          <div class="layer-detail-section">
+            <label>オフセット（秒）</label>
+            <input type="number" class="ld-offset" min="0" step="0.1" value="${layer.offset || 0}" />
+          </div>
+          <div class="layer-detail-section">
+            <label>ループ</label>
+            <input type="checkbox" class="ld-loop" ${layer.loop ? 'checked' : ''} />
+          </div>
+        </div>
+        <div class="layer-detail-actions">
+          <button class="layer-detail-delete">削除</button>
+          <span class="layer-detail-spacer"></span>
+          <button class="layer-detail-ok">OK</button>
+          <button class="layer-detail-cancel">キャンセル</button>
+        </div>
+      </div>
+    `
+    document.body.appendChild(overlay)
+
+    // 音量スライダーのリアルタイム表示
+    const volSlider = overlay.querySelector('.ld-volume')
+    const volVal = overlay.querySelector('.ld-volume-val')
+    volSlider.addEventListener('input', () => { volVal.textContent = volSlider.value })
+
+    // トランスポーズボタン
+    overlay.querySelectorAll('.ld-transpose-btns button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const semi = Number(btn.dataset.semi)
+        this._transposeLayer(layerId, semi)
+        // モーダル内の名前表示を更新
+        const nameEl = overlay.querySelector('.layer-detail-name')
+        const updatedLayer = LayerModel.layers.find(l => l.id === layerId)
+        if (nameEl && updatedLayer) { nameEl.textContent = updatedLayer.name }
+      })
+    })
+
+    // 削除
+    overlay.querySelector('.layer-detail-delete').addEventListener('click', () => {
+      if(!confirm(`「${layer.name}」を削除しますか？`)){
+        return
+      }
+      overlay.remove()
+      LayerModel.removeLayer(layerId)
+    })
+
+    // OK
+    overlay.querySelector('.layer-detail-ok').addEventListener('click', () => {
+      const props = {
+        name: overlay.querySelector('.ld-name').value.trim() || layer.name,
+        oscillatorType: overlay.querySelector('.ld-oscillator').value,
+        volume: Number(overlay.querySelector('.ld-volume').value),
+        fadeIn: Number(overlay.querySelector('.ld-fadein').value) || 0,
+        fadeOut: Number(overlay.querySelector('.ld-fadeout').value) || 0,
+        offset: Number(overlay.querySelector('.ld-offset').value) || 0,
+        loop: overlay.querySelector('.ld-loop').checked,
+      }
+      LayerModel.updateLayer(layerId, props)
+      overlay.remove()
+    })
+
+    // キャンセル
+    overlay.querySelector('.layer-detail-cancel').addEventListener('click', () => {
+      overlay.remove()
+    })
+
+    // オーバーレイクリックで閉じる
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { overlay.remove() }
+    })
   }
 
   // --- Save/Load モーダル ---
@@ -435,20 +442,29 @@ export class LayerPanel {
 
   _transposeLayer(layerId, semitones) {
     const layer = LayerModel.layers.find(l => l.id === layerId)
-    if (!layer || !layer.midiString) { return }
+    if (!layer) { return }
 
-    const transposed = MidiParser.transpose(layer.midiString, semitones)
-    layer.midiString = transposed
-
-    // アクティブレイヤーならtextareaとモデルも更新
-    if (layerId === LayerModel.activeLayerId) {
-      if (Element.elm_midi_string) {
-        Element.elm_midi_string.value = transposed
+    if (layer.mode === 'midi' && Array.isArray(layer.noteEvents) && layer.noteEvents.length) {
+      // MIDIモード: noteEventsのmidi番号を直接変更
+      for (const event of layer.noteEvents) {
+        event.midi = Math.max(0, Math.min(127, event.midi + semitones))
       }
-      MidiModel.fromString(transposed)
-    } else if (layer.notesData) {
-      // 非アクティブレイヤーのスナップショットをクリア（再描画時にmidiStringから再生成）
-      layer.notesData = null
+    } else if (layer.midiString) {
+      // Stringモード: MIDI文字列をトランスポーズ
+      const transposed = MidiParser.transpose(layer.midiString, semitones)
+      layer.midiString = transposed
+
+      // アクティブレイヤーならtextareaとモデルも更新
+      if (layerId === LayerModel.activeLayerId) {
+        if (Element.elm_midi_string) {
+          Element.elm_midi_string.value = transposed
+        }
+        MidiModel.fromString(transposed)
+      } else if (layer.notesData) {
+        layer.notesData = null
+      }
+    } else {
+      return
     }
 
     LayerModel._notify()

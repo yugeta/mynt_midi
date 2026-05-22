@@ -23,8 +23,14 @@ export class Controls{
   }
 
   async init(){
-    // MIDI文字列から実再生時間を算出してTimeにセット
-    Controls.sync_time_from_midi()
+    // Time入力欄: localStorageに保存値があればそれを使う（リロード時の復元）
+    // なければMIDI文字列から再計算
+    const savedTime = localStorage.getItem('mynt_time')
+    if (savedTime) {
+      Element.elm_time.value = savedTime
+    } else {
+      Controls.sync_time_from_midi()
+    }
     this.set_event()
   }
 
@@ -93,6 +99,7 @@ export class Controls{
     else{
       Element.elm_time.value = get_fulltime() / 1000
     }
+    try { localStorage.setItem('mynt_time', Element.elm_time.value) } catch(e){}
   }
 
   change_time(e){
@@ -100,6 +107,7 @@ export class Controls{
     if(sec <= 0){ return }
     apply_timeline_width(sec)
     new Timeline().init()
+    try { localStorage.setItem('mynt_time', String(sec)) } catch(e){}
   }
 
   /**
@@ -117,6 +125,7 @@ export class Controls{
     Element.elm_time.value = sec
     apply_timeline_width(sec)
     new Timeline().init()
+    try { localStorage.setItem('mynt_time', String(sec)) } catch(e){}
   }
 
   /**

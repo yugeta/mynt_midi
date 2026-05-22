@@ -168,6 +168,8 @@ export class MidiPlayer{
           volume: layer.volume,
           offsetSec: offsetSec - layerOffset,
           loop: layer.loop,
+          fadeIn: layer.fadeIn || 0,
+          fadeOut: layer.fadeOut || 0,
         })
         if(result && result.duration > maxDuration){
           maxDuration = result.duration + layerOffset
@@ -184,6 +186,8 @@ export class MidiPlayer{
               oscillatorType: layer.oscillatorType || 'square',
               volume: layer.volume,
               offsetSec: offsetSec - layerOffset,
+              fadeIn: layer.fadeIn || 0,
+              fadeOut: layer.fadeOut || 0,
             })
             if(result && result.duration > maxDuration){
               maxDuration = result.duration + layerOffset
@@ -378,9 +382,12 @@ export class MidiPlayer{
     compressor.release.setValueAtTime(0.1, startTime)
     compressor.connect(ctx.destination)
 
-    // マスターゲイン
+    // マスターゲイン（フェードイン/アウト対応）
     const masterGain = ctx.createGain()
-    masterGain.gain.setValueAtTime(masterVol, startTime)
+    const fadeIn = options.fadeIn || 0
+    const fadeOut = options.fadeOut || 0
+
+    // フェードイン/アウトはノートスケジュール後に適用（totalDuration が必要）
     masterGain.connect(compressor)
 
     const oscillators = []
@@ -435,6 +442,25 @@ export class MidiPlayer{
       masterGain.disconnect()
       compressor.disconnect()
       return { startTime, duration: 0 }
+    }
+
+    // マスターゲインにフェードイン/アウトを適用
+    const totalDuration = maxEndTime
+    if(fadeIn > 0){
+      masterGain.gain.setValueAtTime(0, startTime)
+      masterGain.gain.linearRampToValueAtTime(masterVol, startTime + fadeIn)
+      if(fadeOut > 0 && totalDuration > fadeOut){
+        masterGain.gain.setValueAtTime(masterVol, startTime + totalDuration - fadeOut)
+        masterGain.gain.linearRampToValueAtTime(0, startTime + totalDuration)
+      } else {
+        masterGain.gain.setValueAtTime(masterVol, startTime + fadeIn)
+      }
+    } else if(fadeOut > 0 && totalDuration > fadeOut){
+      masterGain.gain.setValueAtTime(masterVol, startTime)
+      masterGain.gain.setValueAtTime(masterVol, startTime + totalDuration - fadeOut)
+      masterGain.gain.linearRampToValueAtTime(0, startTime + totalDuration)
+    } else {
+      masterGain.gain.setValueAtTime(masterVol, startTime)
     }
 
     // ノードを追跡リストに登録

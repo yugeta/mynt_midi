@@ -44,10 +44,16 @@ class Main{
       if (activeLayer && Element.elm_midi_string) {
         Element.elm_midi_string.value = activeLayer.midiString || ''
       }
-      // Time入力欄を復元した譜面に合わせて再計算
-      Controls.sync_time_from_midi()
-      const sec = Number(Element.elm_time.value) || 1
-      apply_timeline_width(sec)
+      // Time入力欄を復元（保存値があればそれを使う、なければ譜面から再計算）
+      const savedTime = localStorage.getItem('mynt_time')
+      if (savedTime) {
+        Element.elm_time.value = savedTime
+        apply_timeline_width(Number(savedTime))
+      } else {
+        Controls.sync_time_from_midi()
+        const sec = Number(Element.elm_time.value) || 1
+        apply_timeline_width(sec)
+      }
     }
 
     await new LayerPanel().init()
@@ -92,6 +98,22 @@ class Main{
       new Timeline().init()
       LayerModel._notify()
     }
+
+    // スクロール位置を復元
+    requestAnimationFrame(() => {
+      const savedScrollLeft = localStorage.getItem('mynt_scroll_left')
+      const savedScrollTop = localStorage.getItem('mynt_scroll_top')
+      if (savedScrollLeft) {
+        const sl = Number(savedScrollLeft)
+        if (Element.elm_editor) { Element.elm_editor.scrollLeft = sl }
+        if (Element.elm_timeline) { Element.elm_timeline.scrollLeft = sl }
+      }
+      if (savedScrollTop) {
+        const st = Number(savedScrollTop)
+        if (Element.elm_editor) { Element.elm_editor.scrollTop = st }
+        if (Element.elm_keyboard) { Element.elm_keyboard.scrollTop = st }
+      }
+    })
 
     // メニューバーアクションのハンドリング
     document.addEventListener('menubar-action', (e) => {
