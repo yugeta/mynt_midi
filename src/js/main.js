@@ -13,6 +13,7 @@ import { LayerPanel }  from './ui/layer-panel.js'
 import { Element }     from './ui/element.js'
 import { Menubar }     from './ui/menubar.js'
 import { UndoManager } from './controller/undo-manager.js'
+import { Progress }    from './ui/progress.js'
 import { apply_timeline_width, apply_scale, sec2px } from './util/time.js'
 import { note_clear } from './util/position.js'
 
@@ -39,6 +40,10 @@ class Main{
         : 'square'
       LayerModel.init(midiString, oscType)
     } else {
+      Progress.show('データを復元中...')
+      // UIスレッドを解放して描画を確定
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+
       // 復元したアクティブレイヤーのmidiStringをtextareaに反映
       const activeLayer = LayerModel.activeLayer
       if (activeLayer && Element.elm_midi_string) {
@@ -99,7 +104,7 @@ class Main{
       LayerModel._notify()
     }
 
-    // スクロール位置を復元
+    // スクロール位置を復元 & プログレス終了
     requestAnimationFrame(() => {
       const savedScrollLeft = localStorage.getItem('mynt_scroll_left')
       const savedScrollTop = localStorage.getItem('mynt_scroll_top')
@@ -113,6 +118,7 @@ class Main{
         if (Element.elm_editor) { Element.elm_editor.scrollTop = st }
         if (Element.elm_keyboard) { Element.elm_keyboard.scrollTop = st }
       }
+      Progress.hide()
     })
 
     // メニューバーアクションのハンドリング

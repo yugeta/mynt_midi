@@ -3,6 +3,7 @@ import { MidiModel }  from '../midi/model.js'
 import { LayerModel } from '../midi/layer-model.js'
 import { UndoManager } from './undo-manager.js'
 import { Element }   from '../ui/element.js'
+import { Progress }  from '../ui/progress.js'
 import { put_note, note_clear, scroll_middle } from '../util/position.js'
 import { get_width, get_fulltime, get_msec, set_width, sec2px, apply_timeline_width } from '../util/time.js'
 import { Timeline }  from '../ui/timeline.js'
@@ -94,7 +95,13 @@ export class StringInput{
    */
   _onLayerChange(){
     const currentActiveId = LayerModel.activeLayerId
-    if(currentActiveId !== _lastActiveLayerId){
+    const isSwitch = currentActiveId !== _lastActiveLayerId
+
+    if(isSwitch){
+      Progress.show('レイヤー切替中...')
+    }
+
+    if(isSwitch){
       // 切り替え前のレイヤーにモデルデータと textarea の現在値を保存
       const prevLayer = LayerModel.layers.find(l => l.id === _lastActiveLayerId)
       if(prevLayer){
@@ -109,10 +116,8 @@ export class StringInput{
       const activeLayer = LayerModel.activeLayer
       if(activeLayer){
         if(activeLayer.notesData){
-          // スナップショットがあればモデルを復元
           MidiModel.restoreSnapshot(activeLayer.notesData)
         } else if(activeLayer.midiString){
-          // スナップショットがなければ midiString からモデルを構築
           MidiModel.fromString(activeLayer.midiString)
         } else {
           MidiModel.restoreSnapshot(null)
@@ -121,12 +126,17 @@ export class StringInput{
           Element.elm_midi_string.value = activeLayer.midiString || ''
         }
       }
-      // レイヤー切替後に保存
       LayerModel._saveToStorage()
       UndoManager.onLayerSwitch()
     }
+
     note_clear()
     this.renderAllLayers()
+
+    if(isSwitch){
+      // 描画完了後にプログレスを閉じる
+      requestAnimationFrame(() => Progress.hide())
+    }
   }
 
   // MIDI文字列の実再生時間を取得（秒）

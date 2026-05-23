@@ -17,6 +17,7 @@ import { Element }       from '../ui/element.js'
 import { MidiModel }     from '../midi/model.js'
 import { LayerModel }    from '../midi/layer-model.js'
 import { StringInput }   from './string-input.js'
+import { Progress }      from '../ui/progress.js'
 import { note_clear, scroll_middle } from '../util/position.js'
 import { apply_timeline_width, apply_scale } from '../util/time.js'
 import { Timeline }      from '../ui/timeline.js'
@@ -85,32 +86,34 @@ export class JsonIO {
       const file = input.files[0]
       if (!file) { return }
       const reader = new FileReader()
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
-          const data = JSON.parse(reader.result)
-          const layerData = JsonConverter.importLayers(data)
+          await Progress.run('ファイルを読み込み中...', () => {
+            const data = JSON.parse(reader.result)
+            const layerData = JsonConverter.importLayers(data)
 
-          note_clear()
-          LayerModel.fromJSON(layerData)
+            note_clear()
+            LayerModel.fromJSON(layerData)
 
-          const active = LayerModel.activeLayer
-          if (active && Element.elm_midi_string) {
-            Element.elm_midi_string.value = active.midiString || ''
-          }
-          if (active && active.midiString) {
-            MidiModel.fromString(active.midiString)
-          }
+            const active = LayerModel.activeLayer
+            if (active && Element.elm_midi_string) {
+              Element.elm_midi_string.value = active.midiString || ''
+            }
+            if (active && active.midiString) {
+              MidiModel.fromString(active.midiString)
+            }
 
-          // シーン名を復元（データ内のname → なければファイル名）
-          const sceneName = data.name || file.name.replace(/\.json$/i, '')
-          JsonIO._setSceneName(sceneName)
+            // シーン名を復元（データ内のname → なければファイル名）
+            const sceneName = data.name || file.name.replace(/\.json$/i, '')
+            JsonIO._setSceneName(sceneName)
 
-          // シーンデータを復元
-          if (data.scene) {
-            JsonIO._restoreScene(data.scene)
-          }
+            // シーンデータを復元
+            if (data.scene) {
+              JsonIO._restoreScene(data.scene)
+            }
 
-          scroll_middle()
+            scroll_middle()
+          })
         } catch (e) {
           alert(`ファイルの読み込みに失敗しました: ${e.message}`)
         }
@@ -183,36 +186,37 @@ export class JsonIO {
       const file = input.files[0]
       if (!file) { return }
       const reader = new FileReader()
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
-          const tracks = SmfParser.parse(reader.result)
-          if (!tracks || !tracks.length) {
-            alert('MIDIファイルにノートデータが見つかりませんでした')
-            return
-          }
+          await Progress.run('MIDIファイルを読み込み中...', () => {
+            const tracks = SmfParser.parse(reader.result)
+            if (!tracks || !tracks.length) {
+              alert('MIDIファイルにノートデータが見つかりませんでした')
+              return
+            }
 
-          const newLayers = tracks.map(track => ({
-            name: track.name,
-            mode: "midi",
-            oscillatorType: "square",
-            noteEvents: track.noteEvents,
-            midiString: "",
-            offset: 0,
-            loop: false,
-            volume: 50,
-            mute: false,
-            solo: false,
-            visible: true,
-          }))
+            const newLayers = tracks.map(track => ({
+              name: track.name,
+              mode: "midi",
+              oscillatorType: "square",
+              noteEvents: track.noteEvents,
+              midiString: "",
+              offset: 0,
+              loop: false,
+              volume: 50,
+              mute: false,
+              solo: false,
+              visible: true,
+            }))
 
-          LayerModel.addLayers(newLayers)
-          note_clear()
-          // アクティブレイヤーを更新
-          const active = LayerModel.activeLayer
-          if (active && Element.elm_midi_string) {
-            Element.elm_midi_string.value = active.midiString || ''
-          }
-          scroll_middle()
+            LayerModel.addLayers(newLayers)
+            note_clear()
+            const active = LayerModel.activeLayer
+            if (active && Element.elm_midi_string) {
+              Element.elm_midi_string.value = active.midiString || ''
+            }
+            scroll_middle()
+          })
         } catch (e) {
           alert(`MIDIファイルの読み込みに失敗しました: ${e.message}`)
         }
