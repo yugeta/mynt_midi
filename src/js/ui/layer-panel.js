@@ -98,20 +98,20 @@ export class LayerPanel {
     if (isActive) { row.classList.add('active') }
     row.setAttribute('data-layer-id', layer.id)
 
-    // 選択ボタン
-    const selectBtn = document.createElement('button')
-    selectBtn.classList.add('layer-select-btn')
-    selectBtn.textContent = '▶'
-    selectBtn.title = 'このレイヤーを選択'
-    if (isActive) { selectBtn.classList.add('active') }
-    selectBtn.addEventListener('click', (e) => {
+    // 選択チェックボックス（ラジオ的に1つだけアクティブ）
+    const selectBox = document.createElement('input')
+    selectBox.type = 'radio'
+    selectBox.name = 'layer-select'
+    selectBox.classList.add('layer-select-radio')
+    selectBox.checked = isActive
+    selectBox.addEventListener('change', (e) => {
       e.stopPropagation()
       if (LayerModel.activeLayerId !== layer.id) {
         LayerModel.setActive(layer.id)
       }
     })
-    selectBtn.addEventListener('mousedown', (e) => e.stopPropagation())
-    row.appendChild(selectBtn)
+    selectBox.addEventListener('mousedown', (e) => e.stopPropagation())
+    row.appendChild(selectBox)
 
     // カラーインジケーター（クリックで表示/非表示トグル）
     const color = document.createElement('div')
@@ -177,6 +177,13 @@ export class LayerPanel {
     })
     settingsBtn.addEventListener('mousedown', (e) => e.stopPropagation())
     row.appendChild(settingsBtn)
+
+    // 行クリックでアクティブ切替（バブリングフェーズ — 子要素のstopPropagationが優先される）
+    row.addEventListener('click', (e) => {
+      if (LayerModel.activeLayerId !== layer.id) {
+        LayerModel.setActive(layer.id)
+      }
+    })
 
     return row
   }

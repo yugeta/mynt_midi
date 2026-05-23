@@ -78,21 +78,14 @@
   border-style: solid;
 }
 
-/* Layer name */
-.layer-select-btn {
-  font-size: 10px;
+/* Layer select radio */
+.layer-select-radio {
+  width: 14px;
+  height: 14px;
+  accent-color: #4A90D9;
   cursor: pointer;
-  background: none;
-  border: none;
-  color: #bbb;
-  padding: 2px 4px;
-  line-height: 1;
-}
-.layer-select-btn.active {
-  color: #4A90D9;
-}
-.layer-select-btn:hover {
-  color: #4A90D9;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .layer-name {
