@@ -192,6 +192,9 @@ export class Controls{
       default: {
         this.play_status = 'play'
 
+        // 前回の再生が残っていれば停止
+        MidiPlayer.stop()
+
         // タイムバーの現在位置からオフセット（秒）を取得
         const barLeft = Element.elm_timebar_icon
           ? Number(Element.elm_timebar_icon.style.getPropertyValue('left').replace('px','') || 0)

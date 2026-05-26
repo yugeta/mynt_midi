@@ -88,7 +88,10 @@ export class LayerModel {
   // --- CRUD ---
 
   static addLayer() {
-    const layer = LayerModel._createLayer("", "square")
+    // 既存レイヤーと重複しない色を選択
+    const usedColors = new Set(_layers.map(l => l.color))
+    const color = LayerModel._pickUniqueColor(usedColors)
+    const layer = LayerModel._createLayer("", "square", color)
     _layers.push(layer)
     LayerModel._notify()
     return layer
@@ -101,14 +104,22 @@ export class LayerModel {
   static addLayers(newLayers) {
     if (!Array.isArray(newLayers) || newLayers.length === 0) { return }
 
+    // 既存レイヤーで使用中の色を収集
+    const usedColors = new Set(_layers.map(l => l.color))
+
     for (const l of newLayers) {
+      const id = `layer_${_nextId++}`
+      // 既存レイヤーと重複しない色を選択
+      const color = LayerModel._pickUniqueColor(usedColors)
+      usedColors.add(color)
+
       const layer = {
-        id: `layer_${_nextId++}`,
+        id,
         name: l.name || "Layer",
         mode: VALID_MODES.includes(l.mode) ? l.mode : "string",
         oscillatorType: VALID_OSCILLATOR_TYPES.includes(l.oscillatorType)
           ? l.oscillatorType : "square",
-        color: l.color || LAYER_COLORS[(_nextId - 1) % LAYER_COLORS.length],
+        color,
         midiString: l.midiString || "",
         noteEvents: Array.isArray(l.noteEvents) ? l.noteEvents : null,
         notesData: null,
@@ -243,7 +254,24 @@ export class LayerModel {
 
   // --- 内部ヘルパー ---
 
-  static _createLayer(midiString, oscillatorType) {
+  /**
+   * 既存で使用中の色と重複しない色をパレットから選択する
+   * 全色が使用済みの場合はパレットを順番に再利用する
+   * @param {Set} usedColors - 使用中の色のセット
+   * @returns {string} 選択された色
+   */
+  static _pickUniqueColor(usedColors) {
+    // パレットから未使用の色を探す
+    for (const color of LAYER_COLORS) {
+      if (!usedColors.has(color)) {
+        return color
+      }
+    }
+    // 全色使用済みの場合、レイヤー総数に基づいて循環
+    return LAYER_COLORS[_layers.length % LAYER_COLORS.length]
+  }
+
+  static _createLayer(midiString, oscillatorType, color) {
     const id = `layer_${_nextId++}`
     const colorIndex = (_nextId - 1) % LAYER_COLORS.length
     return {
@@ -251,7 +279,7 @@ export class LayerModel {
       name: `Note ${_nextId}`,
       mode: "string",
       oscillatorType: oscillatorType || "square",
-      color: LAYER_COLORS[colorIndex],
+      color: color || LAYER_COLORS[colorIndex],
       midiString: midiString || "",
       noteEvents: null,
       notesData: null,

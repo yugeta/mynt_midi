@@ -1,5 +1,6 @@
 import { MidiParser } from '../midi/parser.js'
 import { MidiModel }  from '../midi/model.js'
+import { MidiPlayer } from '../midi/player.js'
 import { LayerModel } from '../midi/layer-model.js'
 import { UndoManager } from './undo-manager.js'
 import { Element }   from '../ui/element.js'
@@ -50,6 +51,9 @@ export class StringInput{
   }
 
   change_string(){
+    // テキスト編集時に再生中の音を停止（古い音が残るのを防ぐ）
+    MidiPlayer.stop()
+
     // textarea入力時にアクティブレイヤーのmidiStringを更新
     const activeLayer = LayerModel.activeLayer
     if(activeLayer){
@@ -57,6 +61,10 @@ export class StringInput{
     }
     // モデルを再パースして内部データを更新
     MidiModel.fromString(Element.elm_midi_string.value)
+    // notesData もモデルと同期（再生時に古いデータが使われるのを防ぐ）
+    if(activeLayer){
+      activeLayer.notesData = MidiModel.saveSnapshot()
+    }
     note_clear()
     this.renderAllLayers()
     StringInput._syncTimeDisplay()

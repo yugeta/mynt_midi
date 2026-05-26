@@ -175,27 +175,7 @@ export class MidiPlayer{
           maxDuration = result.duration + layerOffset
         }
       } else if(layer.midiString){
-        // 軽量モード: モデルデータがあれば直接スケジュール（音の途切れを防止）
-        // なければMIDI文字列をパースして再生
-        const snapshot = layer.notesData
-        if(snapshot && snapshot.length){
-          // notesData → noteEvents形式に変換して直接スケジュール
-          const events = MidiPlayer._snapshotToEvents(snapshot)
-          if(events.length){
-            const result = MidiPlayer._scheduleFromEvents(events, {
-              oscillatorType: layer.oscillatorType || 'square',
-              volume: layer.volume,
-              offsetSec: offsetSec - layerOffset,
-              fadeIn: layer.fadeIn || 0,
-              fadeOut: layer.fadeOut || 0,
-            })
-            if(result && result.duration > maxDuration){
-              maxDuration = result.duration + layerOffset
-            }
-            continue
-          }
-        }
-        // フォールバック: MIDI文字列からパース再生
+        // MIDI文字列からパースして再生
         const datas = MidiParser.get_code(layer.midiString)
         if(!datas || !datas.length){ continue }
         const result = MidiPlayer._schedule(datas, {
@@ -228,13 +208,8 @@ export class MidiPlayer{
    * @param {object} options - { oscillatorType?: string, volume?: number, offsetSec?: number }
    */
   static _schedule(datas, options){
-    const act = MidiPlayer.audio
-    const startTime   = act.currentTime
-    const destination = act.createAnalyser()
-    const cnt         = MidiPlayer._getChordCount(datas)
-    const oscillator  = []
-    const gain        = []
-
+    const ctx = MidiPlayer.audio
+    const startTime   = ctx.currentTime
     const oscType     = options.oscillatorType || 'square'
     const masterVol   = (options.volume != null ? options.volume : 100) / 100
     const offsetSec   = options.offsetSec || 0
@@ -242,119 +217,110 @@ export class MidiPlayer{
     // ADSR エンベロープパラメータ（秒）
     const env = MidiPlayer._getEnvelope(oscType)
 
-    for(let i=0; i<cnt; i++){
-      oscillator[i] = act.createOscillator()
-      oscillator[i].type = oscType
-      gain[i] = act.createGain()
-    }
-    destination.fftSize = 4096
-    destination.connect(act.destination)
-    for(let i=0; i<cnt; i++){
-      gain[i].gain.setValueAtTime(0, Math.max(0, startTime - 0.001))
-      oscillator[i].connect(gain[i])
-      gain[i].connect(destination)
-    }
-
-    // オフセット適用: offsetSec より前のノートはスキップし、
-    // 以降のノートは (time - offsetSec) 秒後にスケジュールする
+    // 事前走査: 各ノートの後に ~ が続くかを判定し、実際の発音時間を計算する
+    const noteInfos = []
     let time = 0
-    let scheduleTime = 0
     for(let i=0; i<datas.length; i++){
       const data = datas[i]
       const noteEnd = time + data.tempo
 
-      // このノートの終了がオフセットより前ならスキップ
-      if(noteEnd <= offsetSec){
-        time = noteEnd
-        continue
-      }
-
-      // スケジュール上の時刻（オフセット分を差し引く）
-      const t = Math.max(0, time - offsetSec)
-      const vol = ((data.volume || 50) / 1000) * masterVol
-
       if(data.freq){
-        const noteDur = data.tempo
-        const attack  = Math.min(env.attack, noteDur * 0.3)
-        const decay   = Math.min(env.decay, noteDur * 0.3)
-        const release = Math.min(env.release, noteDur * 0.4)
-        const sustainTime = Math.max(0, noteDur - attack - decay - release)
-        const sustainVol  = vol * env.sustain
-
-        for(let j=0; j<cnt; j++){
-          const g = gain[j].gain
-          const noteStart = startTime + t
-
-          // Attack: 0 → vol
-          g.setValueAtTime(0, noteStart)
-          g.linearRampToValueAtTime(vol, noteStart + attack)
-
-          // Decay: vol → sustainVol
-          g.linearRampToValueAtTime(sustainVol, noteStart + attack + decay)
-
-          // Sustain: sustainVol を維持
-          g.setValueAtTime(sustainVol, noteStart + attack + decay + sustainTime)
-
-          // Release: sustainVol → 0
-          g.linearRampToValueAtTime(0, noteStart + noteDur)
-
-          // 周波数設定
-          if(data.freq.constructor === Array){
-            for(let k=0; k<cnt; k++){
-              const freq = data.freq[k] || data.freq[0]
-              oscillator[k].frequency.setValueAtTime(freq, noteStart)
-            }
-          }
-          else{
-            oscillator[j].frequency.setValueAtTime(data.freq, noteStart)
-          }
+        // 次のデータが ~ かチェック
+        let extendDur = 0
+        if(i + 1 < datas.length && datas[i + 1].S === '~'){
+          extendDur = datas[i + 1].tempo
         }
-      }
-      else if(data.S === 'S'){
-        for(let j=0; j<cnt; j++){
-          gain[j].gain.setValueAtTime(0, startTime + t)
-          oscillator[j].frequency.setValueAtTime(0, startTime + t)
-        }
-      }
-      else if(data.S === '~'){
-        for(let j=0; j<cnt; j++){
-          gain[j].gain.linearRampToValueAtTime(0, startTime + t + data.tempo)
-        }
-      }
-      else{
-        time = noteEnd
-        continue
+        noteInfos.push({ type: 'note', data, time, extendDur })
+      } else if(data.S === '~'){
+        noteInfos.push({ type: 'fade', data, time })
+      } else if(data.S === 'S'){
+        noteInfos.push({ type: 'rest', data, time })
       }
       time = noteEnd
-      scheduleTime = t + data.tempo
     }
 
-    // スケジュールするノートがなかった場合
-    if(scheduleTime <= 0){
-      for(let i=0; i<cnt; i++){
-        oscillator[i].connect(gain[i])  // already connected above
-        oscillator[i].start(startTime)
-        oscillator[i].stop(startTime)
+    // 各ノートに個別の OscillatorNode + GainNode を割り当てる
+    const oscillators = []
+    const gains = []
+    let maxEndTime = 0
+
+    for(const info of noteInfos){
+      if(info.type !== 'note'){ continue }
+
+      const data = info.data
+      const noteEnd = info.time + data.tempo
+
+      // オフセット判定: ノート（+延長分）の終了がオフセットより前ならスキップ
+      const totalEnd = noteEnd + info.extendDur
+      if(totalEnd <= offsetSec){ continue }
+
+      const t = Math.max(0, info.time - offsetSec)
+      const vol = ((data.volume || 50) / 1000) * masterVol
+      const noteDur = data.tempo
+      const noteStart = startTime + t
+
+      // ~ がある場合: リリースなしでサステイン → フェードアウト
+      // ~ がない場合: 通常の ADSR
+      const hasFade = info.extendDur > 0
+      const totalDur = noteDur + info.extendDur
+
+      const attack  = Math.min(env.attack, noteDur * 0.3)
+      const decay   = Math.min(env.decay, noteDur * 0.3)
+      const sustainVol = vol * env.sustain
+
+      // 和音対応: freq が配列なら複数オシレーター
+      const freqs = (data.freq.constructor === Array) ? data.freq : [data.freq]
+
+      for(let k=0; k<freqs.length; k++){
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = oscType
+        osc.frequency.setValueAtTime(freqs[k], noteStart)
+
+        // ADSR エンベロープ
+        gain.gain.setValueAtTime(0, noteStart)
+        gain.gain.linearRampToValueAtTime(vol, noteStart + attack)
+        gain.gain.linearRampToValueAtTime(sustainVol, noteStart + attack + decay)
+
+        if(hasFade){
+          // ~ あり: サステインを維持してからフェードアウト
+          gain.gain.setValueAtTime(sustainVol, noteStart + noteDur)
+          gain.gain.linearRampToValueAtTime(0, noteStart + totalDur)
+        } else {
+          // ~ なし: 通常のリリース
+          const release = Math.min(env.release, noteDur * 0.4)
+          const sustainTime = Math.max(0, noteDur - attack - decay - release)
+          gain.gain.setValueAtTime(sustainVol, noteStart + attack + decay + sustainTime)
+          gain.gain.linearRampToValueAtTime(0, noteStart + noteDur)
+        }
+
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(noteStart)
+        osc.stop(noteStart + totalDur + 0.01)
+
+        oscillators.push(osc)
+        gains.push(gain)
       }
+
+      if(t + totalDur > maxEndTime){ maxEndTime = t + totalDur }
+    }
+
+    if(!oscillators.length){
       return { startTime, duration: 0 }
     }
 
-    for(let i=0; i<cnt; i++){
-      oscillator[i].start(startTime)
-      oscillator[i].stop(startTime + scheduleTime + 0.05)
-    }
-
     // ノードを追跡リストに登録
-    const nodeEntry = { oscillators: oscillator, gains: gain }
+    const nodeEntry = { oscillators, gains }
     MidiPlayer._activeNodes.push(nodeEntry)
 
-    // 再生終了時に自動クリーンアップ
-    oscillator[0].onended = () => {
+    // 最後のオシレーター終了時に自動クリーンアップ
+    oscillators[oscillators.length - 1].onended = () => {
       const idx = MidiPlayer._activeNodes.indexOf(nodeEntry)
       if(idx !== -1){ MidiPlayer._activeNodes.splice(idx, 1) }
     }
 
-    return { startTime, duration: scheduleTime }
+    return { startTime, duration: maxEndTime }
   }
 
   /**
