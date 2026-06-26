@@ -123,6 +123,8 @@ try {
 ### `MyntMidi.playJson(json, options?)`
 
 JSON データを再生します。JSON_Format（単一レイヤー）と Layers_JSON（複数レイヤー）の両方に対応します。
+Layers_JSON は `format_version: "2.0"` と `"3.0"` の両方を受け付けます。
+`options.oscillatorType` / `options.volume` は Layers 再生時に全レイヤーへ上書き適用されます。
 
 | パラメータ | 型 | 必須 | 説明 |
 |---|---|---|---|
@@ -147,7 +149,7 @@ const handle = await MyntMidi.playJson({
 
 // Layers_JSON（複数レイヤー）
 const handle2 = await MyntMidi.playJson({
-  format_version: '2.0',
+  format_version: '3.0',
   layers: [
     {
       name: 'Melody',
@@ -169,6 +171,10 @@ const handle2 = await MyntMidi.playJson({
       ]
     }
   ]
+}, {
+  oscillatorType: 'sine',
+  volume: 70,
+  offsetSec: 0.2
 })
 
 // JSON文字列でも可
@@ -214,6 +220,53 @@ console.log(MyntMidi.isPlaying()) // true
 
 MyntMidi.stop()
 console.log(MyntMidi.isPlaying()) // false
+```
+
+---
+
+### `MyntMidi.startNote(key, octave, options?)`
+
+単音の再生を開始します。押下中のみ鳴らす SE や試聴向け API です。
+
+| パラメータ | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `key` | `string` | ○ | 音名（例: `"c"`, `"d-"`, `"f+"`） |
+| `octave` | `number` | ○ | オクターブ（例: `4`） |
+| `options` | `PlayOptions` | - | 再生オプション |
+
+| 戻り値 | 型 |
+|---|---|
+| 成功時 | `Promise<NoteHandle \| null>` |
+| 失敗時 | `Promise.reject({ code, message })` |
+
+```js
+const noteHandle = await MyntMidi.startNote('c', 5, {
+  oscillatorType: 'square',
+  volume: 60
+})
+
+setTimeout(() => {
+  MyntMidi.stopNote(noteHandle)
+}, 200)
+```
+
+---
+
+### `MyntMidi.stopNote(handle)`
+
+`startNote()` で開始した単音を停止します。
+
+| パラメータ | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `handle` | `NoteHandle` | ○ | `startNote()` の戻り値 |
+
+| 戻り値 | 型 |
+|---|---|
+| 戻り値 | `void` |
+
+```js
+const handle = await MyntMidi.startNote('g', 5)
+MyntMidi.stopNote(handle)
 ```
 
 ---
@@ -312,6 +365,7 @@ console.log(result3.error) // "MIDI string could not be parsed or contains no no
 | `volume` | `number` (0〜100) | `50` | 音量 |
 | `loop` | `boolean` | `false` | ループ再生の有効/無効 |
 | `loopCount` | `number` | _(無限)_ | ループ回数。`loop: true` と併用。省略時は無限ループ |
+| `offsetSec` | `number` | `0` | 再生開始オフセット（秒）。`0` 以上 |
 
 ```js
 // 全オプション指定の例
@@ -319,9 +373,15 @@ await MyntMidi.play('T450O7EGO8ECDG', {
   oscillatorType: 'sine',
   volume: 70,
   loop: true,
-  loopCount: 3
+  loopCount: 3,
+  offsetSec: 0.5
 })
 ```
+
+補足:
+
+- `play()` / `playJson()` の両方で `offsetSec` が有効です。
+- `playJson()` で Layers_JSON を再生する場合、`oscillatorType` / `volume` は全レイヤーへ一括適用されます。
 
 ## PlaybackHandle
 
@@ -343,6 +403,17 @@ console.log(handle.looping) // true
 handle.stop()
 console.log(handle.status)  // "stopped"
 ```
+
+## NoteHandle
+
+`startNote()` の戻り値ハンドルです。`stopNote(handle)` に渡して停止します。
+
+| プロパティ | 型 | 説明 |
+|---|---|---|
+| `osc` | `OscillatorNode` | 発音ノード |
+| `gain` | `GainNode` | 音量エンベロープノード |
+| `ctx` | `AudioContext` | AudioContext |
+| `oscType` | `string` | 使用中オシレータ |
 
 ## ValidationResult
 
@@ -421,7 +492,7 @@ AI 作曲連携用の JSON 形式です。`playJson()` および `jsonToMidi()` 
 
 ```json
 {
-  "format_version": "2.0",
+  "format_version": "3.0",
   "layers": [
     {
       "name": "Melody",
@@ -452,7 +523,7 @@ AI 作曲連携用の JSON 形式です。`playJson()` および `jsonToMidi()` 
 
 | フィールド | 型 | 必須 | 説明 |
 |---|---|---|---|
-| `format_version` | `string` | ○ | `"2.0"` 固定 |
+| `format_version` | `string` | ○ | `"2.0"` または `"3.0"` |
 | `layers` | `array` | ○ | レイヤーの配列 |
 | `layers[].name` | `string` | - | レイヤー名 |
 | `layers[].oscillatorType` | `string` | - | オシレータタイプ（`"sine"`, `"square"`, `"sawtooth"`, `"triangle"`） |
@@ -461,6 +532,11 @@ AI 作曲連携用の JSON 形式です。`playJson()` および `jsonToMidi()` 
 | `layers[].solo` | `boolean` | - | ソロ状態 |
 | `layers[].bpm` | `number` | - | テンポ（BPM） |
 | `layers[].notes` | `array` | ○ | 音符配列（JSON_Format の `notes` と同形式） |
+
+注記:
+
+- `format_version: "3.0"` では `id`, `mode`, `offset`, `loop`, `fadeIn`, `fadeOut`, `visible`, `noteEvents` などの拡張フィールドを含められます。
+- API 再生時は `layers` 配列に必要な再生情報があれば、拡張フィールドは省略しても動作します。
 
 ---
 
@@ -501,7 +577,7 @@ T300O5C S C S E G         休符を含むメロディ
 | `EMPTY_INPUT` | 入力が空 | `play()` に空文字列、`undefined`、`null` を渡した場合 | 有効な MIDI 文字列を渡してください |
 | `INVALID_MIDI_STRING` | MIDI 文字列が不正 | パース結果に有効な音符が含まれない場合 | MIDI 文字列の構文を確認してください。`validate()` で事前検証できます |
 | `INVALID_JSON` | JSON 構造が不正 | `playJson()` に不正な JSON を渡した場合（パース失敗、`bpm`/`notes` 欠落、空の `layers` 配列など） | JSON_Format または Layers_JSON のスキーマに従ってください |
-| `INVALID_OPTION` | オプション値が不正 | `oscillatorType` が有効な4種類以外、または `volume` が 0〜100 の範囲外の場合 | `oscillatorType` は `"sine"`, `"square"`, `"sawtooth"`, `"triangle"` のいずれか、`volume` は 0〜100 の数値を指定してください |
+| `INVALID_OPTION` | オプション値が不正 | `oscillatorType` が有効な4種類以外、`volume` が 0〜100 の範囲外、`offsetSec` が 0 未満、`loopCount` が正の整数でない場合 | `oscillatorType` は `"sine"`, `"square"`, `"sawtooth"`, `"triangle"`、`volume` は 0〜100、`offsetSec` は 0 以上、`loopCount` は正の整数を指定してください |
 | `AUDIO_NOT_SUPPORTED` | Web Audio API 非対応 | `AudioContext` が存在しない環境で再生メソッドを呼び出した場合 | Web Audio API に対応したブラウザ（Chrome, Firefox, Safari, Edge の最新版）を使用してください |
 
 ## エラーハンドリングの例
@@ -639,7 +715,7 @@ const interval = setInterval(() => {
 
 ```js
 const song = {
-  format_version: '2.0',
+  format_version: '3.0',
   layers: [
     {
       name: 'Melody',
@@ -665,7 +741,10 @@ const song = {
   ]
 }
 
-await MyntMidi.playJson(song, { loop: true })
+await MyntMidi.playJson(song, {
+  loop: true,
+  offsetSec: 0.4
+})
 ```
 
 ---

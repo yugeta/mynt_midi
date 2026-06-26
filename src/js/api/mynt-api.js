@@ -58,7 +58,47 @@ function _validateOptions(options) {
     }
   }
 
+  if (options.offsetSec !== undefined) {
+    if (typeof options.offsetSec !== 'number' || Number.isNaN(options.offsetSec) || options.offsetSec < 0) {
+      return createError(
+        'INVALID_OPTION',
+        `Invalid offsetSec: ${options.offsetSec}. Must be a number >= 0`
+      )
+    }
+  }
+
+  if (options.loopCount !== undefined) {
+    if (!Number.isInteger(options.loopCount) || options.loopCount <= 0) {
+      return createError(
+        'INVALID_OPTION',
+        `Invalid loopCount: ${options.loopCount}. Must be a positive integer`
+      )
+    }
+  }
+
   return null
+}
+
+/**
+ * Layersの再生前に、グローバルoptionsで指定された値をレイヤーへ反映する
+ * @param {Array} layers - layer data list
+ * @param {object} options - play options
+ * @returns {Array}
+ */
+function _applyLayerPlaybackOptions(layers, options) {
+  if (!Array.isArray(layers) || !layers.length) return []
+  const opts = options || {}
+
+  return layers.map(layer => {
+    const next = { ...layer }
+    if (opts.oscillatorType !== undefined) {
+      next.oscillatorType = opts.oscillatorType
+    }
+    if (opts.volume !== undefined) {
+      next.volume = opts.volume
+    }
+    return next
+  })
 }
 
 // --- ループスケジューリングヘルパー ---
@@ -228,7 +268,7 @@ const MyntMidi = {
     // 5. フォーマット判定
     const format = JsonConverter.detectFormat(data)
 
-    if (format === '2.0') {
+    if (format === '2.0' || format === '3.0') {
       // Layers_JSON: レイヤー再生
       if (!data.layers || !Array.isArray(data.layers) || data.layers.length === 0) {
         return Promise.reject(createError('INVALID_JSON', 'Layers_JSON must contain a non-empty layers array'))
@@ -241,7 +281,8 @@ const MyntMidi = {
 
       const opts = options || {}
       const layerData = JsonConverter.importLayers(data)
-      const result = await MidiPlayer.playLayers(layerData.layers)
+      const playbackLayers = _applyLayerPlaybackOptions(layerData.layers, opts)
+      const result = await MidiPlayer.playLayers(playbackLayers, { offsetSec: opts.offsetSec || 0 })
 
       // ループ状態の初期化
       if (opts.loop && opts.loopCount !== undefined && opts.loopCount > 0) {
@@ -264,7 +305,7 @@ const MyntMidi = {
       // ループスケジューリング or 自然終了クリーンアップ
       const replayFn = async () => {
         MidiPlayer.stop()
-        return MidiPlayer.playLayers(layerData.layers)
+        return MidiPlayer.playLayers(playbackLayers, { offsetSec: opts.offsetSec || 0 })
       }
       _scheduleLoop(handle, result && result.duration, opts, replayFn)
 
@@ -310,6 +351,34 @@ const MyntMidi = {
    */
   isPlaying() {
     return _isPlaying
+  },
+
+  /**
+   * 単音再生を開始する（押下中の試聴などに利用）
+   * @param {string} key - 音名 ('c','d-','f+' など)
+   * @param {number} octave - オクターブ
+   * @param {object} [options] - 再生オプション
+   * @returns {Promise<object|null>} stopNote() に渡すハンドル
+   */
+  async startNote(key, octave, options) {
+    const optionError = _validateOptions(options)
+    if (optionError) {
+      return Promise.reject(optionError)
+    }
+
+    if (typeof window === 'undefined' || (!window.AudioContext && !window.webkitAudioContext)) {
+      return Promise.reject(createError('AUDIO_NOT_SUPPORTED', 'Web Audio API is not supported in this environment'))
+    }
+
+    return MidiPlayer.startNote(key, octave, options || {})
+  },
+
+  /**
+   * startNote() で開始した単音を停止する
+   * @param {object} handle - startNote() の戻り値
+   */
+  stopNote(handle) {
+    MidiPlayer.stopNote(handle)
   },
 
   /**
