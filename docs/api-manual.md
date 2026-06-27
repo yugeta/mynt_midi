@@ -63,6 +63,24 @@ Version: 1.0.0
 </script>
 ```
 
+## 5. 外部同梱用パッケージ構築（重要）
+
+API を外部プロジェクトに同梱する場合は、`src/js/api/mynt-api.js` 単体コピーではなく
+配布用 `api/` ディレクトリを生成して同梱してください。
+
+```sh
+sh ./scripts/build-api-package.sh
+```
+
+生成手順と、バージョンアップ時に必須の `sh` 更新ルールは以下を参照:
+
+- [api-package-build.md](api-package-build.md)
+
+推奨運用:
+
+- `sh ./scripts/check-api-package.sh` で同梱 `api/` の同期状態を確認
+- `sh ./scripts/install-git-hooks.sh` で pre-commit チェックを有効化
+
 ---
 
 # API リファレンス
