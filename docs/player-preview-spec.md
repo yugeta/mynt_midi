@@ -3,6 +3,8 @@
 作成日: 2026-06-27
 対象: [player](../player) 配下に作る API 再生プレビュー機能
 
+実装状況: 初期フェーズ実装済
+
 ## 1. 目的
 
 この機能の目的は次の3点。
@@ -67,6 +69,13 @@ API の呼び出し先は配布エントリ [api/main.js](../api/main.js) を前
 - [player/index.html](../player/index.html)
 - [player/main.js](../player/main.js)
 - [player/style.css](../player/style.css)
+
+実装済み配置:
+
+- [player/index.html](../player/index.html)
+- [player/main.js](../player/main.js)
+- [player/style.css](../player/style.css)
+- [data/index.json](../data/index.json)
 
 ## 5. API 利用方針
 

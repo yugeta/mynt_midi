@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MYNT MIDI Player Preview</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <h1>Player API Preview</h1>
+      <p class="lead">data 配下の JSON を切り替えて API 再生を確認します。</p>
+
+      <label class="field" for="json-select">JSON ファイル</label>
+      <select id="json-select"></select>
+
+      <div class="options">
+        <label><input id="loop-flag" type="checkbox" /> Loop</label>
+        <label><input id="fadeout-flag" type="checkbox" checked /> F.O.</label>
+      </div>
+
+      <div class="actions">
+        <button id="play-btn" type="button">Play</button>
+        <button id="stop-btn" type="button">Stop</button>
+      </div>
+
+      <p id="status" class="status">Status: initializing...</p>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
