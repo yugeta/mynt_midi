@@ -29,6 +29,11 @@ mkdir -p "$OUT_MIDI_DIR"
 # Copy API and rewrite relative imports for standalone api/ distribution.
 sed "s|from '../midi/|from './midi/|g" "$SRC_API" > "$OUT_DIR/mynt-api.js"
 
+# Thin entrypoint for naming consistency.
+cat > "$OUT_DIR/main.js" <<'EOF'
+import './mynt-api.js'
+EOF
+
 # Copy minimal runtime dependencies.
 for file in $REQUIRED_MIDI_FILES; do
   cp "$SRC_MIDI_DIR/$file" "$OUT_MIDI_DIR/$file"
@@ -41,6 +46,7 @@ fi
 
 echo "[build-api-package] Generated package:"
 echo "  api/mynt-api.js"
+echo "  api/main.js"
 for file in $REQUIRED_MIDI_FILES; do
   echo "  api/midi/$file"
 done

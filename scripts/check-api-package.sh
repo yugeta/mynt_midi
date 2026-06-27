@@ -8,7 +8,7 @@ DIST_DIR="$ROOT_DIR/api"
 
 REQUIRED_MIDI_FILES="parser.js player.js json-converter.js"
 
-DIST_FILES="api/mynt-api.js api/midi/parser.js api/midi/player.js api/midi/json-converter.js"
+DIST_FILES="api/mynt-api.js api/main.js api/midi/parser.js api/midi/player.js api/midi/json-converter.js"
 
 TMP_DIR="$(mktemp -d)"
 cleanup(){
@@ -48,6 +48,10 @@ if [ ! -f "$DIST_DIR/mynt-api.js" ]; then
   add_issue "Missing generated file: api/mynt-api.js"
 fi
 
+if [ ! -f "$DIST_DIR/main.js" ]; then
+  add_issue "Missing generated file: api/main.js"
+fi
+
 for file in $REQUIRED_MIDI_FILES; do
   if [ ! -f "$DIST_DIR/midi/$file" ]; then
     add_issue "Missing generated file: api/midi/$file"
@@ -63,12 +67,19 @@ fi
 
 # Recreate expected package in temp location.
 sed "s|from '../midi/|from './midi/|g" "$SRC_API" > "$TMP_API_DIR/mynt-api.js"
+cat > "$TMP_API_DIR/main.js" <<'EOF'
+import './mynt-api.js'
+EOF
 for file in $REQUIRED_MIDI_FILES; do
   cp "$SRC_MIDI_DIR/$file" "$TMP_MIDI_DIR/$file"
 done
 
 if ! cmp -s "$TMP_API_DIR/mynt-api.js" "$DIST_DIR/mynt-api.js"; then
   add_issue "Outdated file: api/mynt-api.js"
+fi
+
+if ! cmp -s "$TMP_API_DIR/main.js" "$DIST_DIR/main.js"; then
+  add_issue "Outdated file: api/main.js"
 fi
 
 for file in $REQUIRED_MIDI_FILES; do

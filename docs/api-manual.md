@@ -66,7 +66,7 @@ Version: 1.0.0
 ## 5. 外部同梱用パッケージ構築（重要）
 
 API を外部プロジェクトに同梱する場合は、`src/js/api/mynt-api.js` 単体コピーではなく
-配布用 `api/` ディレクトリを生成して同梱してください。
+配布用 `api/` ディレクトリ（本体: `api/mynt-api.js`、エントリ: `api/main.js`）を生成して同梱してください。
 
 ```sh
 sh ./scripts/build-api-package.sh

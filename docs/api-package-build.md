@@ -42,6 +42,7 @@ chmod +x ./scripts/build-api-package.sh ./scripts/check-api-package.sh ./scripts
 ```text
 api/
   mynt-api.js
+  main.js
   midi/
     parser.js
     player.js
@@ -53,10 +54,11 @@ api/
 `./scripts/build-api-package.sh` は次を実行する。
 
 1. 生成先 `api/` を毎回クリーン作成
-2. `src/js/api/mynt-api.js` をコピー
+2. `src/js/api/mynt-api.js` を `api/mynt-api.js` としてコピー
 3. `../midi/` import を `./midi/` に自動置換
-4. 必要依存3ファイルを `api/midi/` へコピー
-5. import置換漏れを検証し、失敗時は終了
+4. `api/main.js` を生成（`api/mynt-api.js` を import する薄いエントリ）
+5. 必要依存3ファイルを `api/midi/` へコピー
+6. import置換漏れを検証し、失敗時は終了
 
 `./scripts/check-api-package.sh` は次を実行する。
 
@@ -78,14 +80,15 @@ API/再生基盤を更新した場合、以下は必須。
 3. 上記変更に応じて `scripts/check-api-package.sh` の比較対象リストを更新
 4. `sh ./scripts/build-api-package.sh` を実行して `api/` を再生成
 5. `sh ./scripts/check-api-package.sh` を実行して同期状態を確認
-6. 外部検証ページで `api/mynt-api.js` 読み込み確認
+6. 外部検証ページで `api/main.js` 読み込み確認
 7. `docs/api-manual.md` の仕様差分（メソッド/オプション/制約）を更新
 
 ## 運用ルール
 
 1. `api/` 配下ファイルは手編集しない（常に再生成）
-2. 仕様変更PRでは `scripts/build-api-package.sh` と `scripts/check-api-package.sh` 更新有無をチェック項目にする
-3. APIバージョン変更時はこのドキュメントの日付と更新履歴を追記する
+2. `api/` は生成物として `.gitignore` 管理し、必要時に再生成する
+3. 仕様変更PRでは `scripts/build-api-package.sh` と `scripts/check-api-package.sh` 更新有無をチェック項目にする
+4. APIバージョン変更時はこのドキュメントの日付と更新履歴を追記する
 
 ## 備考
 
