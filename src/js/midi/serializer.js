@@ -38,10 +38,22 @@ export class MidiSerializer{
       const id = elm.getAttribute('data-model-id')
       const left = elm.offsetLeft
       const width = elm.offsetWidth
+      const key = elm.getAttribute('data-key')
+      const octaveRaw = elm.getAttribute('data-octave')
       const note = MidiModel.findById(id)
       if(note){
         note.left = left
         note.width = width
+        // 縦移動で変わった音階情報もモデルへ反映する。
+        if(key){
+          note.key = key.toLowerCase()
+        }
+        if(octaveRaw !== null){
+          const octave = Number(octaveRaw)
+          if(!Number.isNaN(octave)){
+            note.octave = octave
+          }
+        }
         // width → tempo/tempoVal を逆算
         const tempo = px2sec(width)
         if(tempo > 0){
