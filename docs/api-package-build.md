@@ -41,9 +41,9 @@ chmod +x ./scripts/build-api-package.sh ./scripts/check-api-package.sh ./scripts
 
 ```text
 api/
-  mynt-api.js
   main.js
-  midi/
+  modules/
+    mynt-api.js
     parser.js
     player.js
     json-converter.js
@@ -54,10 +54,10 @@ api/
 `./scripts/build-api-package.sh` は次を実行する。
 
 1. 生成先 `api/` を毎回クリーン作成
-2. `src/js/api/mynt-api.js` を `api/mynt-api.js` としてコピー
-3. `../midi/` import を `./midi/` に自動置換
-4. `api/main.js` を生成（`api/mynt-api.js` を import する薄いエントリ）
-5. 必要依存3ファイルを `api/midi/` へコピー
+2. `src/js/api/mynt-api.js` を `api/modules/mynt-api.js` としてコピー
+3. `../midi/` import を `./` に自動置換
+4. `api/main.js` を生成（`api/modules/mynt-api.js` を import する薄いエントリ）
+5. 必要依存3ファイルを `api/modules/` へコピー
 6. import置換漏れを検証し、失敗時は終了
 
 `./scripts/check-api-package.sh` は次を実行する。

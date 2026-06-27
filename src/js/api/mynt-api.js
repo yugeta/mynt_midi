@@ -18,6 +18,9 @@ let _loopRemaining = null
 // --- 有効なオシレータタイプ ---
 const VALID_OSCILLATOR_TYPES = ['sine', 'square', 'sawtooth', 'triangle']
 
+// --- bindPlay用のキャッシュ ---
+const _jsonSourceCache = new Map()
+
 // --- エラー生成ヘルパー ---
 
 /**
@@ -99,6 +102,53 @@ function _applyLayerPlaybackOptions(layers, options) {
     }
     return next
   })
+}
+
+/**
+ * 再生に渡せるオプションだけを抽出する
+ * @param {object} options
+ * @returns {object}
+ */
+function _extractPlayOptions(options) {
+  const opts = options || {}
+  const next = {}
+  if (opts.oscillatorType !== undefined) next.oscillatorType = opts.oscillatorType
+  if (opts.volume !== undefined) next.volume = opts.volume
+  if (opts.loop !== undefined) next.loop = !!opts.loop
+  if (opts.loopCount !== undefined) next.loopCount = opts.loopCount
+  if (opts.offsetSec !== undefined) next.offsetSec = opts.offsetSec
+  return next
+}
+
+/**
+ * bindPlay の trigger target を解決する
+ * @param {string|Element} target
+ * @returns {Element|null}
+ */
+function _resolveEventTarget(target) {
+  if (!target) return null
+  if (typeof target === 'string') {
+    return document.querySelector(target)
+  }
+  if (target && typeof target.addEventListener === 'function') {
+    return target
+  }
+  return null
+}
+
+/**
+ * ユーザーコールバックを安全に実行する
+ * @param {Function|undefined} callback
+ * @param {any} payload
+ */
+function _safeCallback(callback, payload) {
+  if (typeof callback !== 'function') return
+  try {
+    callback(payload)
+  } catch (e) {
+    // コールバック例外で再生フローを壊さない
+    console.error('[MyntMidi.bindPlay] callback error:', e)
+  }
 }
 
 // --- ループスケジューリングヘルパー ---
@@ -379,6 +429,173 @@ const MyntMidi = {
    */
   stopNote(handle) {
     MidiPlayer.stopNote(handle)
+  },
+
+  /**
+   * イベント駆動の簡易再生バインダー
+   *
+   * @param {object} config
+   * @param {object} config.source - { type: 'json-url' | 'json-object' | 'midi-string', value: any }
+   * @param {object} config.playTrigger - { target: string|Element, event?: string }
+   * @param {object} [config.stopTrigger] - { target: string|Element, event?: string }
+   * @param {object} [config.options] - 再生オプション
+   * @param {object} [config.callbacks] - { onStart, onEnd, onStop, onError }
+   * @returns {Promise<object>} controller
+   */
+  async bindPlay(config) {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return Promise.reject(createError('INVALID_BIND_CONFIG', 'bindPlay is only available in browser environments'))
+    }
+
+    const cfg = config || {}
+    const source = cfg.source || {}
+    const playTrigger = cfg.playTrigger || {}
+    const stopTrigger = cfg.stopTrigger || null
+    const callbacks = cfg.callbacks || {}
+    const options = cfg.options || {}
+
+    const playOptions = _extractPlayOptions(options)
+    const optionError = _validateOptions(playOptions)
+    if (optionError) {
+      return Promise.reject(optionError)
+    }
+
+    if (!source.type || source.value === undefined || source.value === null) {
+      return Promise.reject(createError('INVALID_BIND_CONFIG', 'source.type and source.value are required'))
+    }
+
+    const playEl = _resolveEventTarget(playTrigger.target)
+    if (!playEl) {
+      return Promise.reject(createError('INVALID_BIND_CONFIG', 'playTrigger target not found'))
+    }
+
+    const stopEl = stopTrigger ? _resolveEventTarget(stopTrigger.target) : null
+    if (stopTrigger && !stopEl) {
+      return Promise.reject(createError('INVALID_BIND_CONFIG', 'stopTrigger target not found'))
+    }
+
+    const playEvent = playTrigger.event || 'click'
+    const stopEvent = (stopTrigger && stopTrigger.event) || 'click'
+    const replayMode = cfg.replayMode || 'restart'
+    const fadeOutEnabled = !!options.fadeOut
+    const fadeOutSec = Number(options.fadeOutSec || 0.12)
+
+    const state = {
+      disposed: false,
+      busy: false,
+      handle: null,
+      endWatcherId: null,
+    }
+
+    const clearEndWatcher = () => {
+      if (state.endWatcherId) {
+        clearInterval(state.endWatcherId)
+        state.endWatcherId = null
+      }
+    }
+
+    const startEndWatcher = () => {
+      clearEndWatcher()
+      state.endWatcherId = setInterval(() => {
+        if (!MyntMidi.isPlaying()) {
+          clearEndWatcher()
+          state.handle = null
+          _safeCallback(callbacks.onEnd)
+        }
+      }, 100)
+    }
+
+    const loadSource = async () => {
+      switch (source.type) {
+        case 'json-url': {
+          const url = String(source.value)
+          if (_jsonSourceCache.has(url)) {
+            return _jsonSourceCache.get(url)
+          }
+          const response = await fetch(url)
+          if (!response.ok) {
+            throw createError('INVALID_JSON', `Failed to fetch JSON: ${response.status} ${response.statusText}`)
+          }
+          const data = await response.json()
+          _jsonSourceCache.set(url, data)
+          return data
+        }
+        case 'json-object':
+          return source.value
+        case 'midi-string':
+          return String(source.value)
+        default:
+          throw createError('INVALID_BIND_CONFIG', `Unsupported source.type: ${source.type}`)
+      }
+    }
+
+    const stopPlayback = () => {
+      if (fadeOutEnabled && fadeOutSec > 0) {
+        setTimeout(() => {
+          if (!state.disposed) {
+            MyntMidi.stop()
+          }
+        }, fadeOutSec * 1000)
+      } else {
+        MyntMidi.stop()
+      }
+      clearEndWatcher()
+      state.handle = null
+      _safeCallback(callbacks.onStop)
+    }
+
+    const playPlayback = async (event) => {
+      if (state.disposed || state.busy) return
+      state.busy = true
+      try {
+        if (MyntMidi.isPlaying()) {
+          if (replayMode === 'ignore') {
+            return
+          }
+          MyntMidi.stop()
+        }
+
+        const input = await loadSource()
+        if (source.type === 'midi-string') {
+          state.handle = await MyntMidi.play(input, playOptions)
+        } else {
+          state.handle = await MyntMidi.playJson(input, playOptions)
+        }
+
+        startEndWatcher()
+        _safeCallback(callbacks.onStart, { event, handle: state.handle })
+      } catch (err) {
+        _safeCallback(callbacks.onError, err)
+      } finally {
+        state.busy = false
+      }
+    }
+
+    const onPlay = (event) => {
+      playPlayback(event)
+    }
+    const onStop = () => {
+      stopPlayback()
+    }
+
+    playEl.addEventListener(playEvent, onPlay)
+    if (stopEl) {
+      stopEl.addEventListener(stopEvent, onStop)
+    }
+
+    return {
+      play: () => playPlayback(),
+      stop: () => stopPlayback(),
+      dispose: () => {
+        if (state.disposed) return
+        state.disposed = true
+        clearEndWatcher()
+        playEl.removeEventListener(playEvent, onPlay)
+        if (stopEl) {
+          stopEl.removeEventListener(stopEvent, onStop)
+        }
+      },
+    }
   },
 
   /**

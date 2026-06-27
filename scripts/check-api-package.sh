@@ -8,7 +8,7 @@ DIST_DIR="$ROOT_DIR/api"
 
 REQUIRED_MIDI_FILES="parser.js player.js json-converter.js"
 
-DIST_FILES="api/mynt-api.js api/main.js api/midi/parser.js api/midi/player.js api/midi/json-converter.js"
+DIST_FILES="api/modules/mynt-api.js api/modules/parser.js api/modules/player.js api/modules/json-converter.js"
 
 TMP_DIR="$(mktemp -d)"
 cleanup(){
@@ -17,8 +17,8 @@ cleanup(){
 trap cleanup EXIT INT TERM
 
 TMP_API_DIR="$TMP_DIR/api"
-TMP_MIDI_DIR="$TMP_API_DIR/midi"
-mkdir -p "$TMP_MIDI_DIR"
+TMP_MODULE_DIR="$TMP_API_DIR/modules"
+mkdir -p "$TMP_MODULE_DIR"
 
 if [ ! -f "$SRC_API" ]; then
   echo "[check-api-package] ERROR: Missing source API file: $SRC_API" >&2
@@ -44,17 +44,13 @@ add_issue(){
   fi
 }
 
-if [ ! -f "$DIST_DIR/mynt-api.js" ]; then
-  add_issue "Missing generated file: api/mynt-api.js"
-fi
-
-if [ ! -f "$DIST_DIR/main.js" ]; then
-  add_issue "Missing generated file: api/main.js"
+if [ ! -f "$DIST_DIR/modules/mynt-api.js" ]; then
+  add_issue "Missing generated file: api/modules/mynt-api.js"
 fi
 
 for file in $REQUIRED_MIDI_FILES; do
-  if [ ! -f "$DIST_DIR/midi/$file" ]; then
-    add_issue "Missing generated file: api/midi/$file"
+  if [ ! -f "$DIST_DIR/modules/$file" ]; then
+    add_issue "Missing generated file: api/modules/$file"
   fi
 done
 
@@ -66,25 +62,18 @@ if [ -n "$issues" ]; then
 fi
 
 # Recreate expected package in temp location.
-sed "s|from '../midi/|from './midi/|g" "$SRC_API" > "$TMP_API_DIR/mynt-api.js"
-cat > "$TMP_API_DIR/main.js" <<'EOF'
-import './mynt-api.js'
-EOF
+sed "s|from '../midi/|from './|g" "$SRC_API" > "$TMP_MODULE_DIR/mynt-api.js"
 for file in $REQUIRED_MIDI_FILES; do
-  cp "$SRC_MIDI_DIR/$file" "$TMP_MIDI_DIR/$file"
+  cp "$SRC_MIDI_DIR/$file" "$TMP_MODULE_DIR/$file"
 done
 
-if ! cmp -s "$TMP_API_DIR/mynt-api.js" "$DIST_DIR/mynt-api.js"; then
-  add_issue "Outdated file: api/mynt-api.js"
-fi
-
-if ! cmp -s "$TMP_API_DIR/main.js" "$DIST_DIR/main.js"; then
-  add_issue "Outdated file: api/main.js"
+if ! cmp -s "$TMP_MODULE_DIR/mynt-api.js" "$DIST_DIR/modules/mynt-api.js"; then
+  add_issue "Outdated file: api/modules/mynt-api.js"
 fi
 
 for file in $REQUIRED_MIDI_FILES; do
-  if ! cmp -s "$TMP_MIDI_DIR/$file" "$DIST_DIR/midi/$file"; then
-    add_issue "Outdated file: api/midi/$file"
+  if ! cmp -s "$TMP_MODULE_DIR/$file" "$DIST_DIR/modules/$file"; then
+    add_issue "Outdated file: api/modules/$file"
   fi
 done
 

@@ -11,7 +11,7 @@ Version: 1.0.0
 ## 1. スクリプトの読み込み
 
 ```html
-<script type="module" src="src/js/api/mynt-api.js"></script>
+<script type="module" src="api/main.js"></script>
 ```
 
 > **注意:** `type="module"` が必須です。MYNT MIDI API は ES Modules として提供されます。
@@ -24,7 +24,7 @@ Version: 1.0.0
 ```html
 <script type="module">
   // モジュール読み込み後に利用可能
-  import './src/js/api/mynt-api.js'
+  import './api/main.js'
 
   console.log(MyntMidi.version) // "1.0.0"
 </script>
@@ -34,7 +34,7 @@ Version: 1.0.0
 
 ```html
 <script type="module">
-  import './src/js/api/mynt-api.js'
+  import './api/main.js'
 
   // コイン音を再生
   const handle = await MyntMidi.play('T600O6BT100O7E~')
@@ -46,7 +46,7 @@ Version: 1.0.0
 
 ```html
 <script type="module">
-  import './src/js/api/mynt-api.js'
+  import './api/main.js'
 
   const music = {
     bpm: 120,
@@ -66,7 +66,7 @@ Version: 1.0.0
 ## 5. 外部同梱用パッケージ構築（重要）
 
 API を外部プロジェクトに同梱する場合は、`src/js/api/mynt-api.js` 単体コピーではなく
-配布用 `api/` ディレクトリ（本体: `api/mynt-api.js`、エントリ: `api/main.js`）を生成して同梱してください。
+配布用 `api/` ディレクトリ（本体: `api/modules/mynt-api.js`、エントリ: `api/main.js`）を生成して同梱してください。
 
 ```sh
 sh ./scripts/build-api-package.sh
@@ -290,6 +290,51 @@ MyntMidi.stopNote(handle)
 
 ---
 
+### `MyntMidi.bindPlay(config)`
+
+イベント駆動の簡易再生コントローラーを生成します。
+JSON URL の読み込み、再生/停止イベント、コールバック、dispose をまとめて扱えます。
+
+| パラメータ | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `config` | `BindPlayConfig` | ○ | バインド設定 |
+
+| 戻り値 | 型 |
+|---|---|
+| 成功時 | `Promise<BindPlayController>` |
+| 失敗時 | `Promise.reject({ code, message })` |
+
+```js
+const controller = await MyntMidi.bindPlay({
+  source: { type: 'json-url', value: '/sounds/coin.json' },
+  playTrigger: { target: '#coin-btn', event: 'click' },
+  stopTrigger: { target: '#stop-btn', event: 'click' },
+  options: {
+    loop: false,
+    fadeOut: true,
+    fadeOutSec: 0.08,
+    volume: 70
+  },
+  callbacks: {
+    onStart: ({ handle }) => console.log('start', handle.status),
+    onEnd: () => console.log('end'),
+    onStop: () => console.log('stop'),
+    onError: (err) => console.error(err)
+  }
+})
+
+// 画面離脱などでイベント解除
+controller.dispose()
+```
+
+補足:
+
+- `source.type` は `"json-url"`, `"json-object"`, `"midi-string"` をサポート
+- `playTrigger.target` / `stopTrigger.target` は CSS セレクタ文字列または Element を指定可能
+- `replayMode` は `"restart"`（既定）か `"ignore"`
+
+---
+
 ### `MyntMidi.jsonToMidi(json)`
 
 JSON_Format オブジェクトを MIDI 文字列に変換します。
@@ -402,6 +447,11 @@ await MyntMidi.play('T450O7EGO8ECDG', {
 - `play()` / `playJson()` の両方で `offsetSec` が有効です。
 - `playJson()` で Layers_JSON を再生する場合、`oscillatorType` / `volume` は全レイヤーへ一括適用されます。
 
+`bindPlay()` 専用の拡張オプション:
+
+- `fadeOut` (`boolean`) : 停止イベント時に短いフェード停止を有効化
+- `fadeOutSec` (`number`) : フェード停止までの待機秒数（既定: `0.12`）
+
 ## PlaybackHandle
 
 再生制御用のオブジェクトです。`play()` / `playJson()` の戻り値として返されます。
@@ -422,6 +472,32 @@ console.log(handle.looping) // true
 handle.stop()
 console.log(handle.status)  // "stopped"
 ```
+
+## BindPlayConfig
+
+`bindPlay()` の設定オブジェクトです。
+
+| プロパティ | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `source.type` | `"json-url" \| "json-object" \| "midi-string"` | ○ | 再生ソース種別 |
+| `source.value` | `any` | ○ | 再生データ（URL/JSON/MIDI文字列） |
+| `playTrigger.target` | `string \| Element` | ○ | 再生イベント対象 |
+| `playTrigger.event` | `string` | - | 再生イベント名（既定: `"click"`） |
+| `stopTrigger.target` | `string \| Element` | - | 停止イベント対象 |
+| `stopTrigger.event` | `string` | - | 停止イベント名（既定: `"click"`） |
+| `options` | `PlayOptions` | - | 再生オプション |
+| `callbacks` | `object` | - | `onStart/onEnd/onStop/onError` |
+| `replayMode` | `"restart" \| "ignore"` | - | 再押下時の再生方針 |
+
+## BindPlayController
+
+`bindPlay()` の戻り値です。
+
+| プロパティ | 型 | 説明 |
+|---|---|---|
+| `play()` | `function` | 手動で再生を実行 |
+| `stop()` | `function` | 手動で停止を実行 |
+| `dispose()` | `function` | 登録したイベントを解除 |
 
 ## NoteHandle
 
@@ -653,7 +729,7 @@ if (result.valid) {
 
 ```html
 <script type="module">
-  import './src/js/api/mynt-api.js'
+  import './api/main.js'
 
   // BGM を無限ループ再生
   const bgm = await MyntMidi.play('T120O5CDEFGABO6C', {
@@ -673,7 +749,7 @@ if (result.valid) {
 
 ```html
 <script type="module">
-  import './src/js/api/mynt-api.js'
+  import './api/main.js'
 
   document.getElementById('coin-btn').addEventListener('click', async () => {
     await MyntMidi.play('T600O6BT100O7E~', {

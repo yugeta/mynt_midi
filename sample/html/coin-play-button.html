@@ -116,49 +116,55 @@
     <script type="module">
       import "../../api/main.js";
 
-      const playBtn = document.getElementById("play-btn");
-      const stopBtn = document.getElementById("stop-btn");
-      const statusEl = document.getElementById("status");
+      window.addEventListener("DOMContentLoaded", async () => {
+        const statusEl = document.getElementById("status");
+        const COIN_JSON_PATH = "../コイン.json";
 
-      const COIN_JSON_PATH = "../コイン.json";
-
-      let coinJsonCache = null;
-
-      function setStatus(message) {
-        statusEl.textContent = `Status: ${message}`;
-      }
-
-      async function loadCoinJson() {
-        if (coinJsonCache) {
-          return coinJsonCache;
+        function setStatus(message) {
+          statusEl.textContent = `Status: ${message}`;
         }
 
-        const response = await fetch(COIN_JSON_PATH);
-        if (!response.ok) {
-          throw new Error(`JSON load failed: ${response.status} ${response.statusText}`);
-        }
-
-        coinJsonCache = await response.json();
-        return coinJsonCache;
-      }
-
-      playBtn.addEventListener("click", async () => {
         try {
-          setStatus("loading json...");
+          await window.MyntMidi.bindPlay({
+            source: {
+              type: "json-url",
+              value: COIN_JSON_PATH,
+            },
+            playTrigger: {
+              target: "#play-btn",
+              event: "click",
+            },
+            stopTrigger: {
+              target: "#stop-btn",
+              event: "click",
+            },
+            options: {
+              loop: false,
+              fadeOut: true,
+              fadeOutSec: 0.08,
+            },
+            callbacks: {
+              onStart: ({ handle }) => {
+                setStatus(`playing (loop: ${handle.looping ? "on" : "off"})`);
+              },
+              onEnd: () => {
+                setStatus("ended");
+              },
+              onStop: () => {
+                setStatus("stopped");
+              },
+              onError: (error) => {
+                setStatus(`error - ${error.message || "unknown error"}`);
+                console.error(error);
+              },
+            },
+          });
 
-          const coinJson = await loadCoinJson();
-          const handle = await window.MyntMidi.playJson(coinJson);
-
-          setStatus(`playing (loop: ${handle.looping ? "on" : "off"})`);
+          setStatus("ready");
         } catch (error) {
-          setStatus(`error - ${error.message || "unknown error"}`);
+          setStatus(`error - ${error.message || "bind failed"}`);
           console.error(error);
         }
-      });
-
-      stopBtn.addEventListener("click", () => {
-        window.MyntMidi.stop();
-        setStatus("stopped");
       });
     </script>
   </body>
