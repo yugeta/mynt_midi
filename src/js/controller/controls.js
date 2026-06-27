@@ -114,7 +114,50 @@ export class Controls{
    * Trim: 全レイヤーのMIDI再生時間にTimeをフィットさせる
    */
   click_trim(){
-    StringInput.trimTimeToLayers()
+    let maxDuration = 0
+    for(const layer of LayerModel.layers){
+      const dur = StringInput.getLayerDuration(layer)
+      if(dur > maxDuration){ maxDuration = dur }
+    }
+    if(maxDuration <= 0){ return }
+
+    // 末尾ノートの切れ防止マージン
+    const sec = Math.ceil((maxDuration + 0.05) * 10) / 10
+
+    // 画面幅に収まるスケールへ自動調整（上限・下限でクランプ）
+    const editorWidth = Element.elm_editor ? Element.elm_editor.clientWidth : 0
+    if(editorWidth > 0){
+      const currentScale = get_scale() || 1
+      const baseMsec = get_msec() / currentScale
+      const requiredMsec = editorWidth / (sec * 10)
+      const fittedScale = Math.max(0.25, Math.min(4.0, requiredMsec / baseMsec))
+      const fittedPct = Math.round(fittedScale * 100)
+
+      apply_scale(fittedScale)
+      const slider = document.querySelector('.scale-slider')
+      const label = document.querySelector('.scale-value')
+      if(slider){ slider.value = String(fittedPct) }
+      if(label){ label.textContent = `${fittedPct}%` }
+      try { localStorage.setItem('mynt_scale', String(fittedPct)) } catch(e){}
+    }
+
+    // Time/幅を先に確定してからノートのpxを再計算する
+    Element.elm_time.value = sec
+    apply_timeline_width(sec)
+
+    // trim後の表示基準（scale + time）で全ノートのピクセル位置を更新
+    MidiModel.recalcPixels()
+    for(const layer of LayerModel.layers){
+      if(!layer.notesData){ continue }
+      for(const n of layer.notesData){
+        n.left = sec2px(n.startTime)
+        n.width = sec2px(n.tempo)
+      }
+    }
+
+    new Timeline().init()
+    LayerModel._notify()
+    try { localStorage.setItem('mynt_time', String(sec)) } catch(e){}
   }
 
   /**

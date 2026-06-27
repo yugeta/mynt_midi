@@ -444,17 +444,8 @@ export class JsonIO {
       apply_timeline_width(scene.time)
     }
 
-    // Scale
-    if (scene.scale) {
-      const slider = document.querySelector('.scale-slider')
-      const label = document.querySelector('.scale-value')
-      if (slider) { slider.value = scene.scale }
-      if (label) { label.textContent = `${scene.scale}%` }
-      apply_scale(scene.scale / 100)
-      const sec = Number(Element.elm_time.value) || 1
-      apply_timeline_width(sec)
-      try { localStorage.setItem('mynt_scale', String(scene.scale)) } catch(e){}
-    }
+    // Scaleは読み込み時に変更しない（現在の表示倍率を維持）
+    // scene.scale は保持データとして残すが、ここでは適用しない
 
     // Timeline再描画
     new Timeline().init()
