@@ -67,7 +67,7 @@ export class StringInput{
     }
     note_clear()
     this.renderAllLayers()
-    StringInput._syncTimeDisplay()
+    StringInput.trimTimeToLayers()
     // localStorageに保存
     LayerModel._saveToStorage()
     // Undo履歴に追加（デバウンス: 入力が500ms止まったら確定）
@@ -94,6 +94,27 @@ export class StringInput{
       new Timeline().init()
       try { localStorage.setItem('mynt_time', String(sec)) } catch(e){}
     }
+  }
+
+  /**
+   * 全レイヤーの再生時間に合わせてTimeを自動調整する（trim相当）
+   */
+  static trimTimeToLayers(){
+    if(!Element.elm_time){ return }
+
+    let maxDuration = 0
+    for(const layer of LayerModel.layers){
+      const dur = StringInput.getLayerDuration(layer)
+      if(dur > maxDuration){ maxDuration = dur }
+    }
+    if(maxDuration <= 0){ return }
+
+    // 端の描画切れを防ぐために微小マージンを追加
+    const sec = Math.ceil((maxDuration + 0.05) * 10) / 10
+    Element.elm_time.value = sec
+    apply_timeline_width(sec)
+    new Timeline().init()
+    try { localStorage.setItem('mynt_time', String(sec)) } catch(e){}
   }
 
   /**
@@ -164,12 +185,18 @@ export class StringInput{
 
     if(layer.mode === 'midi' && layer.noteEvents && layer.noteEvents.length){
       // MIDIモード: 最後のノートの終了時刻
+      // noteEvents の time が既に offset を含むデータがあるため、
+      // 先頭時刻と offset を比較して二重加算を回避する。
       let maxEnd = 0
+      let minStart = Infinity
       for(const event of layer.noteEvents){
+        if(event.time < minStart){ minStart = event.time }
         const end = event.time + event.duration
         if(end > maxEnd){ maxEnd = end }
       }
-      return maxEnd + offset
+
+      const hasEmbeddedOffset = offset > 0 && minStart !== Infinity && minStart >= (offset - 0.001)
+      return hasEmbeddedOffset ? maxEnd : (maxEnd + offset)
     }
 
     // 軽量モード

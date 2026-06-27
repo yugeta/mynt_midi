@@ -2,6 +2,7 @@ import { LayerModel }  from '../midi/layer-model.js'
 import { MidiParser } from '../midi/parser.js'
 import { MidiModel }  from '../midi/model.js'
 import { UndoManager } from '../controller/undo-manager.js'
+import { StringInput } from '../controller/string-input.js'
 import { Element }    from './element.js'
 
 /**
@@ -438,6 +439,7 @@ export class LayerPanel {
       if (active && Element.elm_midi_string) {
         Element.elm_midi_string.value = active.midiString
       }
+      StringInput.trimTimeToLayers()
       overlay.classList.remove('active')
     } catch (e) {
       errorEl.textContent = `エラー: ${e.message}`

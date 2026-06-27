@@ -99,9 +99,25 @@ export class JsonIO {
             if (active && Element.elm_midi_string) {
               Element.elm_midi_string.value = active.midiString || ''
             }
-            if (active && active.midiString) {
-              MidiModel.fromString(active.midiString)
+
+            // アクティブレイヤーのモデルを確実に復元
+            if (active) {
+              if (active.mode === 'midi' && active.noteEvents && active.noteEvents.length) {
+                MidiModel.restoreSnapshot(null)
+              }
+              else if (active.notesData && active.notesData.length) {
+                MidiModel.restoreSnapshot(active.notesData)
+              }
+              else if (active.midiString) {
+                MidiModel.fromString(active.midiString)
+              }
+              else {
+                MidiModel.restoreSnapshot(null)
+              }
             }
+
+            // 読み込み後は全レイヤー長に合わせて自動trim
+            StringInput.trimTimeToLayers()
 
             // シーン名を復元（データ内のname → なければファイル名）
             const sceneName = data.name || file.name.replace(/\.json$/i, '')
@@ -111,6 +127,20 @@ export class JsonIO {
             if (data.scene) {
               JsonIO._restoreScene(data.scene)
             }
+
+            // シーン復元後も、読み込みデータ優先で自動trim
+            StringInput.trimTimeToLayers()
+
+            // fromString() 実行時点のTime/Scale差分を吸収してピクセル位置を再計算
+            // （ページ更新なしで複数回読み込むと前回状態の比率が残るため）
+            MidiModel.recalcPixels()
+            if (active) {
+              active.notesData = MidiModel.saveSnapshot()
+            }
+
+            // 読み込み後に全レイヤーを再描画して表示反映を保証
+            note_clear()
+            new StringInput().renderAllLayers()
 
             scroll_middle()
           })
@@ -215,6 +245,7 @@ export class JsonIO {
             if (active && Element.elm_midi_string) {
               Element.elm_midi_string.value = active.midiString || ''
             }
+            StringInput.trimTimeToLayers()
             scroll_middle()
           })
         } catch (e) {
@@ -296,6 +327,7 @@ export class JsonIO {
     if (active && Element.elm_midi_string) {
       Element.elm_midi_string.value = active.midiString || ''
     }
+    StringInput.trimTimeToLayers()
     scroll_middle()
   }
 

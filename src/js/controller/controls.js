@@ -114,18 +114,7 @@ export class Controls{
    * Trim: 全レイヤーのMIDI再生時間にTimeをフィットさせる
    */
   click_trim(){
-    let maxDuration = 0
-    for(const layer of LayerModel.layers){
-      const dur = StringInput.getLayerDuration(layer)
-      if(dur > maxDuration){ maxDuration = dur }
-    }
-    if(maxDuration <= 0){ return }
-
-    const sec = Math.ceil(maxDuration * 10) / 10
-    Element.elm_time.value = sec
-    apply_timeline_width(sec)
-    new Timeline().init()
-    try { localStorage.setItem('mynt_time', String(sec)) } catch(e){}
+    StringInput.trimTimeToLayers()
   }
 
   /**
