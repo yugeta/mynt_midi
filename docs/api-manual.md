@@ -80,6 +80,7 @@ sh ./scripts/build-api-package.sh
 
 - `sh ./scripts/check-api-package.sh` で同梱 `api/` の同期状態を確認
 - `sh ./scripts/install-git-hooks.sh` で pre-commit チェックを有効化
+- イベント駆動の簡易実装仕様は [api-easy-play-spec.md](api-easy-play-spec.md) を参照
 
 ---
 
